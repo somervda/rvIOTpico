@@ -27,7 +27,7 @@ picoLTE.network.register_network()
 picoLTE.http.set_context_id()
 picoLTE.network.get_pdp_ready()
 
-picoLTE.http.set_server_url("http://somerville.noip.me:37007/read?user=david")
+picoLTE.http.set_server_url("https://www.iqvia.com/")
 debug.info("Sending a GET request.")
 
 result = picoLTE.http.get()
@@ -47,8 +47,8 @@ command = "AT+CSQ"
 result = picoLTE.atcom.send_at_comm(command)
 rssi= result['response'][0].split(":")[1].split(',')[0]
 print(rssi)
-print("rssi:",int(rssi.strip())-109,"db")
-# rssi = -109 + (result[0] *2) in db
+print("rssi:",(int(rssi.strip())*2)-109,"db")
+
 
 
 # debug.info("Get GPS")
