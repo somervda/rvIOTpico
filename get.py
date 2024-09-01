@@ -21,13 +21,15 @@ from pico_lte.utils.status import Status
 from pico_lte.core import PicoLTE
 from pico_lte.common import debug
 
+
+
 picoLTE = PicoLTE()
 
 picoLTE.network.register_network()
 picoLTE.http.set_context_id()
 picoLTE.network.get_pdp_ready()
 
-picoLTE.http.set_server_url("https://www.iqvia.com/")
+picoLTE.http.set_server_url("http://somerville.noip.me:37007/status?user=david")
 debug.info("Sending a GET request.")
 
 result = picoLTE.http.get()
@@ -51,27 +53,27 @@ print("rssi:",(int(rssi.strip())*2)-109,"db")
 
 
 
-# debug.info("Get GPS")
+debug.info("Get GPS")
 # First go to GNSS prior mode and turn on GPS.
-# picoLTE.gps.set_priority(0)
-# time.sleep(3)
-# picoLTE.gps.turn_on()
-# debug.info("Trying to fix GPS...")
+picoLTE.gps.set_priority()
+time.sleep(3)
+picoLTE.gps.turn_on()
+debug.info("Trying to fix GPS...")
 
-# for x in range(0, 90):
-#     result = picoLTE.gps.get_location()
-#     debug.info(x,result)
+for x in range(0, 90):
+    result = picoLTE.gps.get_location()
+    debug.info(x,result)
 
-#     if result["status"] == Status.SUCCESS:
-#         debug.debug("GPS Fixed. Getting location data...")
+    if result["status"] == Status.SUCCESS:
+        debug.debug("GPS Fixed. Getting location data...")
 
-#         loc = result.get("value")
-#         debug.info("Lat-Lon:", loc)
-#         loc_message = ",".join(word for word in loc)
+        loc = result.get("value")
+        debug.info("Lat-Lon:", loc)
+        loc_message = ",".join(word for word in loc)
 
-#         fix = True
-#         break
-#     time.sleep(5)  # 60*5 = 90 seconds timeout for GPS fix.
+        fix = True
+        break
+    time.sleep(5)  # 60*5 = 90 seconds timeout for GPS fix.
 
 # Power off modem after request
 picoLTE.base.power_off()
