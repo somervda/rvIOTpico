@@ -108,17 +108,16 @@ else:
 # print(value)
 
 from ina219 import INA219
-from logging import INFO
+from logging import DEBUG
 
 # change this to match 50amp 75mv shunt resistor
 # in parallel with onboard ina219 0.1 ohm shunt (Makes little difference)
 # will do some tests latter to do any adjustments
 # Best resolution at 12 bits will be around 0.06A
-SHUNT_OHMS = 0.00015
+SHUNT_OHMS = 0.0015
 
-ina = INA219(SHUNT_OHMS, i2c, log_level=INFO)
+ina = INA219(SHUNT_OHMS, i2c, log_level=DEBUG)
 ina.configure()
-
 print("Bus Voltage: %.3f V" % ina.voltage())
 print("Current: %.3f mA" % ina.current())
 print("Power: %.3f mW" % ina.power())
