@@ -1,7 +1,9 @@
 {
-    "cSpell.words": [
-        "mday",
-        "rssi",
-        "yearday"
-    ]
+  "cSpell.words": [
+    "gettime",
+    "gmtime",
+    "mday",
+    "rssi",
+    "yearday"
+  ]
 }
