@@ -63,6 +63,7 @@ if False:
 
 
 if False:
+    picoLTE = PicoLTE()
     debug.info("Get GPS")
     # First go to GNSS prior mode and turn on GPS.
     picoLTE.gps.set_priority(0)
@@ -100,25 +101,69 @@ else:
   for device in devices:  
     print("Decimal address: ",device," | Hexa address: ",hex(device))
 
+if False:
+    # code to read adc value
+    # from ads1x15 import ADS1115
+    # adc = ADS1115(i2c, address=72, gain=1)
+    # value = adc.read(0, 0)
+    # print(value)
 
-# code to read adc value
-# from ads1x15 import ADS1115
-# adc = ADS1115(i2c, address=72, gain=1)
-# value = adc.read(0, 0)
-# print(value)
+    from ina219 import INA219
+    from logging import DEBUG
 
-from ina219 import INA219
-from logging import DEBUG
+    # change this to match 50amp 75mv shunt resistor
+    # in parallel with onboard ina219 0.1 ohm shunt (Makes little difference)
+    # will do some tests latter to do any adjustments
+    # Best resolution at 12 bits will be around 0.06A
+    SHUNT_OHMS = 0.0015
 
-# change this to match 50amp 75mv shunt resistor
-# in parallel with onboard ina219 0.1 ohm shunt (Makes little difference)
-# will do some tests latter to do any adjustments
-# Best resolution at 12 bits will be around 0.06A
-SHUNT_OHMS = 0.0015
+    ina = INA219(SHUNT_OHMS, i2c, log_level=DEBUG)
+    ina.configure()
+    print("Bus Voltage: %.3f V" % ina.voltage())
+    print("Current: %.3f mA" % ina.current())
+    print("Power: %.3f mW" % ina.power())
 
-ina = INA219(SHUNT_OHMS, i2c, log_level=DEBUG)
-ina.configure()
-print("Bus Voltage: %.3f V" % ina.voltage())
-print("Current: %.3f mA" % ina.current())
-print("Power: %.3f mW" % ina.power())
+# Get climate data using adafuit bme688
+#  See https://randomnerdtutorials.com/micropython-bme680-esp32-esp8266/
+# I used this version of the library https://github.com/CRCibernetica/bme688-i2c-micropython 
+# Common products with high VOC https://apps.ecology.wa.gov/cleanupsearch/document/69000 
+if False:
+    from  bme688 import BME680_I2C
+    sensor = BME680_I2C(i2c,address=0x76)
 
+    while True:
+        gas = sensor.gas
+        temperature = sensor.temperature
+        humidity = sensor.humidity
+        pressure = sensor.pressure
+        print(f'Temp: {temperature:.1f}C,  RH: {humidity:.1f}%,  Pressure: {pressure:.1f}kPa,  Gas: {gas:.0f}')
+        time.sleep(5)
+
+
+#  RTC
+# https://github.com/pangopi/micropython-DS3231-AT24C32
+# Sets the RTC based on current pico time
+if True:
+    from ds3231 import DS3231
+    ds = DS3231(i2c)
+
+    print("1. RTC:",ds.datetime())
+    localtime=list(time.localtime())
+    print("2. localtime:",localtime)
+    year = localtime[0]
+    month = localtime[1]
+    mday = localtime[2]
+    hour = localtime[3]+4
+    minute = localtime[4]
+    second = localtime[5]
+    weekday = localtime[6]
+
+    if hour>23:
+        print("Error: Cant set gmt time, try again tomorrow morning:",localtime)
+    else:
+        gmt=(year, month, mday, hour, minute, second,weekday)
+        print("3. gmt:",gmt)
+        # Set realtime clock to gmt
+        # Note setting time tuple is different order from getting time tuple
+        ds.datetime(gmt)
+    print("4 new RTC:",ds.datetime())
