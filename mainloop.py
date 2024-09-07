@@ -21,29 +21,46 @@ lastMinute = time.localtime()[4]
 
 settings = Settings()
 event_loop_seconds = settings.get('EVENT_LOOP_SECONDS')
+uniqueMs = 0
 
-# acTemp = Accumulator()
-# acTemp.addSample(74)
-# time.sleep(4)
-# acTemp.addSample(75)
-# time.sleep(6)
-# acTemp.addSample(79)
-# print(acTemp.average,acTemp.duration)
-# acTemp.reset()
-# print(acTemp.average,acTemp.duration)
 
-stat_Temp = Statistic("Temperature")
-stat_hPa = Statistic("hPa")
-stat_Humidity = Statistic("Humidity")
-stat_VOC = Statistic("VOC")
+statCelsius = Statistic("Celsius")
+statHPa = Statistic("hPa")
+statHumidity = Statistic("Humidity")
+statVOC = Statistic("VOC")
+
+def getUniqueMs():
+    global uniqueMs
+    uniqueMs+=1
+    if uniqueMs > 999:
+        uniqueMs =0
+    return "{}".format(timestamp) + "{:03d}".format(uniqueMs)    
 
 def getClimate():
+    global statHumidity,statVOC,statCelsius,statHPa
     # Get the climate data from the BME688 sensor and add to the accumulators
-    stat_VOC.addSample(bme688.gas)
-    stat_Temp.addSample(bme688.temperature)
-    stat_Humidity.addSample(bme688.humidity)
-    stat_hPa.addSample(bme688.pressure)
+    statVOC.addSample(bme688.gas)
+    statCelsius.addSample(bme688.temperature)
+    statHumidity.addSample(bme688.humidity)
+    statHPa.addSample(bme688.pressure)
 
+def storeClimate():
+    # Get averages for any climate statistics
+    # store them in a date stamped json file 
+    # for sending to the IOT server 
+    global statHumidity,statVOC,statCelsius,statHPa
+    iotData = {}
+    iotData["celsius"] = statCelsius.average
+    iotData["hPa"] = statHPa.average
+    iotData["humidity"] = statHumidity.average
+    iotData["voc"] = statVOC.average
+    iotData["sensorTimestamp"] = time.time()
+    with open("data/" + str(time.time()) + getUniqueMs + ".json", "w") as sensor_data_file:
+            sensor_data_file.write(json.dumps(iotData))
+    statCelsius.reset()
+    statHPa.reset()
+    statHumidity.reset()
+    statVOC.reset()
 
 
 # Main event loop
@@ -59,6 +76,7 @@ while True:
     # Is it LTE xmit time
     if (lastHour != currentHour):
         print("Do LTE")
+        storeClimate()
         lastHour = currentHour
 
     time.sleep(event_loop_seconds)
