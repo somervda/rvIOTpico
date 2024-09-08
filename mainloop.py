@@ -1,5 +1,6 @@
 import time
 import machine
+import json
 
 from settings import Settings
 from ds3231 import DS3231
@@ -29,12 +30,14 @@ statHPa = Statistic("hPa")
 statHumidity = Statistic("Humidity")
 statVOC = Statistic("VOC")
 
+
 def getUniqueMs():
     global uniqueMs
     uniqueMs+=1
     if uniqueMs > 999:
         uniqueMs =0
-    return "{}".format(timestamp) + "{:03d}".format(uniqueMs)    
+    return "{:03d}".format(uniqueMs)    
+
 
 def getClimate():
     global statHumidity,statVOC,statCelsius,statHPa
@@ -55,7 +58,10 @@ def storeClimate():
     iotData["humidity"] = statHumidity.average
     iotData["voc"] = statVOC.average
     iotData["sensorTimestamp"] = time.time()
-    with open("data/" + str(time.time()) + getUniqueMs + ".json", "w") as sensor_data_file:
+    print(iotData)
+    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+    print(file)
+    with open(file, "w") as sensor_data_file:
             sensor_data_file.write(json.dumps(iotData))
     statCelsius.reset()
     statHPa.reset()
@@ -74,7 +80,7 @@ while True:
         getClimate()
         lastMinute = currentMinute
     # Is it LTE xmit time
-    if (lastHour != currentHour):
+    if (lastHour != currentHour ):
         print("Do LTE")
         storeClimate()
         lastHour = currentHour
