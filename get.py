@@ -101,7 +101,7 @@ else:
   for device in devices:  
     print("Decimal address: ",device," | Hexa address: ",hex(device))
 
-if False:
+if True:
     # code to read adc value
     # from ads1x15 import ADS1115
     # adc = ADS1115(i2c, address=72, gain=1)
