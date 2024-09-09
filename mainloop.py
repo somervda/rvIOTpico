@@ -1,21 +1,29 @@
 import time
 import machine
 import json
+import sys
+import os
 
 from settings import Settings
 from ds3231 import DS3231
 from statistic import Statistic
 from  bme688 import BME680_I2C
+from bg95m3 import Bg95m3
 from ina219 import INA219
 from logging import DEBUG
 
 settings = Settings()
+SHUNT_OHMS = 0.0015
+CLIMATE_ID = 1
+VEHICLE_ID = 3
+LOCATION_ID = 3
+IOT_ID = 7
+
 # Create I2c interface objects
 i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
 ds = DS3231(i2c)
 bme688 = BME680_I2C(i2c,address=0x76)
-SHUNT_OHMS = 0.0015
-ina = INA219(SHUNT_OHMS, i2c, log_level=DEBUG)
+ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
 ina.configure()
 
 # Set current pico RTC time to metric time from RTC module
@@ -29,6 +37,7 @@ lastSend = time.time() - (time.time() % settings.get('SEND_SECONDS') )
 
 event_loop_seconds = settings.get('EVENT_LOOP_SECONDS')
 uniqueMs = 0
+quiet=False
 
 
 statCelsius = Statistic("Celsius")
@@ -76,6 +85,7 @@ def storeClimate():
     iotData["humidity"] = round(statHumidity.average,0)
     iotData["voc"] = round(statVOC.average,0)
     iotData["sensorTimestamp"] = time.time()
+    iotData["appID"] = CLIMATE_ID
     print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
     print(file)
@@ -92,9 +102,10 @@ def storeVehicle():
     # for sending to the IOT server 
     global statVolts,statAmps
     iotData = {}
-    iotData["houseBattery"] = round(statVolts.average,2)
+    iotData["houseVolts"] = round(statVolts.average,2)
     iotData["houseAmps"]= round((statAmps.average/1000),3)
     iotData["sensorTimestamp"] = time.time()
+    iotData["appID"] = VEHICLE_ID
     print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
     print(file)
@@ -103,7 +114,63 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
+def doLTE():
+    sendSecondStart = time.time()
+    # Do LTE and GPS operations if we can connect
+    bg95m3 = Bg95m3(quiet)
+    filesSent=0
+    if not bg95m3.powerOn():
+        # No successful LTE modem startup, give up until next time
+        bg95m3.powerOff()
+    else:
+        for fileName in os.listdir("data"):
+            with open("data/" + fileName, "r") as iotDataFile:
+                not quiet and print("Sending ",fileName," to iotCache...")
+                iotData = json.load(iotDataFile)
+                iotData["user"] = settings.get("USER")
+                iotData["deviceID"] = settings.get("DEVICEID") 
+                request = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                not quiet and print("request:",request)
+                result=bg95m3.httpGet(request)
+                if result:
+                    filesSent+=1
+                    not quiet and print("remove:",fileName)
+                    # os.remove("data/" + fileName)
+                else:
+                    break
+                # Only process one file per event loop
+                break
+        # Get GPS info
+        gps = bg95m3.getLocation()
+        not quiet and print("gps:",gps)
+        if gps:
+            nop
 
+        # Update IOT info
+        rssi = bg95m3.getRSSI()
+        not quiet and print("rssi:",rssi)
+        iotData = {}
+        iotData["user"] = settings.get("USER")
+        iotData["deviceID"] = settings.get("DEVICEID") 
+        iotData["appID"] = IOT_ID
+        iotData["sensorTimestamp"] = time.time()
+        iotData["RSSI"] = rssi
+        if gps:
+            iotData["gpsSeconds"] = gps["duration"]
+        iotData["sendSeconds"] = time.time() - sendSecondStart
+        iotData["uptimeSeconds"] = time.time() - upTimeStart
+        iotData["fileSent"] = filesSent
+        request = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+        not quiet and print("request:",request)
+        result=bg95m3.httpGet(request)
+        time.sleep(5)
+
+        # print("Power off")
+        bg95m3.powerOff()
+        # del bg95m3
+
+doLTE()
+sys.exit(0)
 
 # Main event loop
 while True:
@@ -119,6 +186,7 @@ while True:
         print("*** Do Send",time.localtime())
         storeClimate()
         storeVehicle()
+        # doLTE()
 
 
     time.sleep(event_loop_seconds)
