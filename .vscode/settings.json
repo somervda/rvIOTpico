@@ -4,6 +4,7 @@
     "gettime",
     "gmtime",
     "mday",
+    "mpremote",
     "pico",
     "rssi",
     "xmit",
