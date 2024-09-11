@@ -16,6 +16,7 @@ class Bg95m3:
     
     def powerOn(self):
         try:
+            not self.quiet and print("Bg95m3 powerOn")
             self.picoLTE = PicoLTE()
             if self.picoLTE.network.register_network()["status"] != Status.SUCCESS :
                 print("Error: Register Network")
@@ -37,7 +38,8 @@ class Bg95m3:
         try:
             self.picoLTE.http.set_server_url(url)
             result = self.picoLTE.http.get()
-            # Read the response after 2 seconds.
+            # not self.quiet and print(result)
+            # Read the response after 5 seconds.
             time.sleep(2)
             result = self.picoLTE.http.read_response()
             not self.quiet and print(result)
@@ -63,7 +65,6 @@ class Bg95m3:
     def getLocation(self):
          # First go to GNSS prior mode and turn on GPS.
         try:
-            startTime = time.time()
             self.picoLTE.gps.set_priority(0)
             time.sleep(3)
             self.picoLTE.gps.turn_on()
@@ -75,6 +76,7 @@ class Bg95m3:
 
                 if result["status"] == Status.SUCCESS:
                     loc = result.get("value")
+                    not self.quiet and print("GPS response:",result.get("response"))
                     response = result.get("response")[0].split(",")
                     gpsTime = response[0].split(" ")[1].split(".")[0]
                     gpsDate = response[9]
@@ -84,22 +86,24 @@ class Bg95m3:
                     hour = int(gpsTime[:2])
                     minute = int(gpsTime[2:4])
                     second = int(gpsTime[4:6])
-                    gpsInfo = {"latitude":loc[0],
-                    "longitude":loc[1],
+                    gpsInfo = {"latitude":float(loc[0]),
+                    "longitude":float(loc[1]),
                     "year":year,
                     "month":month,
                     "day":day,
                     "hour":hour,
                     "minute":minute,
-                    "second":second,
-                    "duration":time.time() - startTime}
+                    "second":second}
+                    self.picoLTE.gps.turn_off()
                     return gpsInfo
                 time.sleep(5)  # 60*5 = 3 minutes timeout for GPS fix.
             return None
         except:
             print("Error: getLocation")
+            self.picoLTE.gps.turn_off()
             return None
 
     def powerOff(self):
+        not self.quiet and print("Bg95m3 powerOff")
         self.picoLTE.base.power_off()
 

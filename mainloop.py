@@ -12,13 +12,24 @@ from bg95m3 import Bg95m3
 from ina219 import INA219
 from logging import DEBUG
 
+quiet=False
+
 settings = Settings()
 SHUNT_OHMS = 0.0015
 CLIMATE_ID = 1
 VEHICLE_ID = 3
-LOCATION_ID = 3
+LOCATION_ID = 4
 IOT_ID = 7
 
+led = machine.Pin("LED", machine.Pin.OUT)
+def ledFlash():
+    led.on()
+    time.sleep(0.5)
+    led.off()
+    time.sleep(0.2)
+
+for x in range(6):
+    ledFlash()
 # Create I2c interface objects
 i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
 ds = DS3231(i2c)
@@ -26,8 +37,9 @@ bme688 = BME680_I2C(i2c,address=0x76)
 ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
 ina.configure()
 
-# Set current pico RTC time to metric time from RTC module
+# Set current pico RTC time to time from DS3231 RTC module
 rtc = machine.RTC()
+not quiet and print("pico RTC , DS3231 RTC:",rtc.datetime(),",",ds.datetime())
 rtc.datetime(ds.datetime())
 upTimeStart = time.time()
 # Initialize last times data was collected and sent (Start of last minute and hour)
@@ -37,7 +49,6 @@ lastSend = time.time() - (time.time() % settings.get('SEND_SECONDS') )
 
 event_loop_seconds = settings.get('EVENT_LOOP_SECONDS')
 uniqueMs = 0
-quiet=False
 
 
 statCelsius = Statistic("Celsius")
@@ -46,6 +57,7 @@ statHumidity = Statistic("Humidity")
 statVOC = Statistic("VOC")
 statVolts = Statistic("houseBattery")
 statAmps = Statistic("houseAmps")
+
 
 
 def getUniqueMs():
@@ -114,6 +126,54 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
+def storeIOT(bg95m3,gpsSeconds,sendSeconds,filesSent):
+    rssi = bg95m3.getRSSI()
+    not quiet and print("rssi:",rssi)
+    iotData = {}
+    iotData["appID"] = IOT_ID
+    iotData["sensorTimestamp"] = time.time()
+    iotData["RSSI"] = rssi 
+    iotData["gpsSeconds"] = gpsSeconds
+    iotData["sendSeconds"] = sendSeconds
+    iotData["uptimeSeconds"] = time.time() - upTimeStart
+    iotData["filesSent"] = filesSent
+    not quiet and print(iotData)
+    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+    not quiet and print(file)
+    with open(file, "w") as sensor_data_file:
+            sensor_data_file.write(json.dumps(iotData))
+
+def storeGPS(gpsData):
+    iotData = {}
+    iotData["appID"] = LOCATION_ID
+    iotData["sensorTimestamp"] = time.time()
+    iotData["latitude"] = gpsData["latitude"] 
+    iotData["longitude"] = gpsData["longitude"] 
+    not quiet and print(iotData)
+    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+    not quiet and print(file)
+    with open(file, "w") as sensor_data_file:
+            sensor_data_file.write(json.dumps(iotData))
+
+def checkGPSTime(gpsData):
+    global ds,rtc
+    # The time received from the GPS is the most accurate
+    # Check to see if the pico RTC is out of sync (By more than a minute), if it is
+    # then update the pico RTC and the DS3231 RTC 
+    picoRTC = rtc.datetime()
+    if gpsData["year"] != picoRTC[0] or gpsData["month"] != picoRTC[1] \
+        or gpsData["day"] != picoRTC[2] or gpsData["hour"] != picoRTC[4] \
+        or gpsData["minute"] != picoRTC[5]:
+        # Update the RTCs
+        gmt=(gpsData["year"], gpsData["month"], gpsData["day"], gpsData["hour"], gpsData["minute"], gpsData["second"])
+        not quiet and print("RTC out of sync with GPS:",picoRTC,gmt)
+        ds.datetime(gmt)
+        rtc.datetime(ds.datetime())
+        not quiet and print("RTCs updated")
+
+
+
+
 def doLTE():
     sendSecondStart = time.time()
     # Do LTE and GPS operations if we can connect
@@ -123,54 +183,50 @@ def doLTE():
         # No successful LTE modem startup, give up until next time
         bg95m3.powerOff()
     else:
+
+        # Get GPS info
+        # This is stored  as a iotData file and sent in the next part of the code
+        gpsStartTime = time.time()
+        gpsData = bg95m3.getLocation()
+        not quiet and print("gpsData:",gpsData)
+        if gpsData:
+            storeGPS(gpsData)
+            checkGPSTime(gpsData)
+
+        # Send any available iotData files
+        time.sleep(2)
         for fileName in os.listdir("data"):
             with open("data/" + fileName, "r") as iotDataFile:
                 not quiet and print("Sending ",fileName," to iotCache...")
                 iotData = json.load(iotDataFile)
                 iotData["user"] = settings.get("USER")
                 iotData["deviceID"] = settings.get("DEVICEID") 
-                request = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
-                not quiet and print("request:",request)
-                result=bg95m3.httpGet(request)
+                # url = "http://somerville.noip.me:37007/status?user=david"
+                url = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                not quiet and print("url:",url)
+                result=bg95m3.httpGet(url)
                 if result:
                     filesSent+=1
                     not quiet and print("remove:",fileName)
-                    # os.remove("data/" + fileName)
+                    os.remove("data/" + fileName)
                 else:
+                    # Stop trying to send if a send fails
                     break
                 # Only process one file per event loop
-                break
-        # Get GPS info
-        gps = bg95m3.getLocation()
-        not quiet and print("gps:",gps)
-        if gps:
-            nop
+                # break
+                time.sleep(1)
 
-        # Update IOT info
-        rssi = bg95m3.getRSSI()
-        not quiet and print("rssi:",rssi)
-        iotData = {}
-        iotData["user"] = settings.get("USER")
-        iotData["deviceID"] = settings.get("DEVICEID") 
-        iotData["appID"] = IOT_ID
-        iotData["sensorTimestamp"] = time.time()
-        iotData["RSSI"] = rssi
-        if gps:
-            iotData["gpsSeconds"] = gps["duration"]
-        iotData["sendSeconds"] = time.time() - sendSecondStart
-        iotData["uptimeSeconds"] = time.time() - upTimeStart
-        iotData["fileSent"] = filesSent
-        request = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
-        not quiet and print("request:",request)
-        result=bg95m3.httpGet(request)
-        time.sleep(5)
+        # Store IOT info 
+        # This is stored as a iotData file and only sent on the next send cycle
+        storeIOT(bg95m3,time.time() - gpsStartTime,time.time() - sendSecondStart,filesSent)
+
 
         # print("Power off")
         bg95m3.powerOff()
         # del bg95m3
 
-doLTE()
-sys.exit(0)
+# doLTE()
+# sys.exit(0)
 
 # Main event loop
 while True:
@@ -178,15 +234,19 @@ while True:
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
         print("*** Do Sample:",time.localtime())
+        ledFlash()
         getClimate()
         getVehicle()
+        ledFlash()
     # Is it LTE xmit time
     if (time.time() - lastSend >= settings.get('SEND_SECONDS')):
         lastSend = time.time() - (time.time() % settings.get('SEND_SECONDS') ) 
         print("*** Do Send",time.localtime())
+        for x in range(2):
+            ledFlash()
         storeClimate()
         storeVehicle()
-        # doLTE()
+        doLTE()
 
 
     time.sleep(event_loop_seconds)
