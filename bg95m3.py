@@ -18,21 +18,49 @@ class Bg95m3:
         try:
             not self.quiet and print("Bg95m3 powerOn")
             self.picoLTE = PicoLTE()
-            if self.picoLTE.network.register_network()["status"] != Status.SUCCESS :
-                print("Error: Register Network")
-                return None
-            if self.picoLTE.http.set_context_id()["status"] != Status.SUCCESS:
-                print("Error: set_context_id")
-                return None
-            if self.picoLTE.network.get_pdp_ready()["status"] != Status.SUCCESS :
-                print("Error: get_pdp_ready")
-                return None
         except:
             print("Error: powerOn")
             return None
         # Success return None
         return True
 
+    def lteConnect(self):
+        try:
+            not self.quiet and print("lteConnect")
+            # command = "AT+CSQ"
+            # result = self.picoLTE.atcom.send_at_comm(command)
+            # not self.quiet and print( "Reset AT to factory", result)
+            # if result["status"] != Status.SUCCESS :
+            #     print("Error: Reset AT to factory", result)
+            #     return None
+            # See https://arduino103.blogspot.com/2024/02/sixfab-pico-lte-premier-test-de.html  
+            # Good result is 1 or 5
+            # 0: Not registered, the device is currently not searching for new operator.
+            # 1: Registered to home network.
+            # 2: Not registered, but the device is currently searching for a new operator.
+            # 3: Registration denied.
+            # 4: Unknown. For example, out of range.
+            # 5: Registered, roaming. The device is registered on a foreign (national or international) network.
+            result = self.picoLTE.network.register_network()
+            not self.quiet and print( "Register Network", result)
+            if result["status"] != Status.SUCCESS :
+                print("Error: Register Network", result)
+                return None
+            result = self.picoLTE.http.set_context_id()
+            not self.quiet and print( "set_context_id", result)
+            if result["status"] != Status.SUCCESS:
+                print("Error: set_context_id",result)
+                return None
+            result = self.picoLTE.network.get_pdp_ready() 
+            not self.quiet and print( "get_pdp_ready", result)
+            if result["status"] != Status.SUCCESS :
+                print("Error: get_pdp_ready",result)
+                return None
+        except:
+            print("Error: powerOn")
+            return None
+        # Success return None
+        return True
 
     def httpGet(self,url):
         try:

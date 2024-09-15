@@ -24,12 +24,14 @@ IOT_ID = 7
 led = machine.Pin("LED", machine.Pin.OUT)
 def ledFlash():
     led.on()
-    time.sleep(0.5)
+    time.sleep(1)
     led.off()
-    time.sleep(0.2)
+    time.sleep(0.5)
 
-for x in range(6):
-    ledFlash()
+ledFlash()
+
+userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
+
 # Create I2c interface objects
 i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
 ds = DS3231(i2c)
@@ -126,13 +128,12 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
-def storeIOT(bg95m3,gpsSeconds,sendSeconds,filesSent):
-    rssi = bg95m3.getRSSI()
-    not quiet and print("rssi:",rssi)
+def storeIOT(bg95m3,gpsSeconds,sendSeconds,filesSent,rssi):
     iotData = {}
     iotData["appID"] = IOT_ID
     iotData["sensorTimestamp"] = time.time()
-    iotData["RSSI"] = rssi 
+    if rssi:
+        iotData["RSSI"] = rssi 
     iotData["gpsSeconds"] = gpsSeconds
     iotData["sendSeconds"] = sendSeconds
     iotData["uptimeSeconds"] = time.time() - upTimeStart
@@ -183,53 +184,59 @@ def doLTE():
         # No successful LTE modem startup, give up until next time
         bg95m3.powerOff()
     else:
-
         # Get GPS info
-        # This is stored  as a iotData file and sent in the next part of the code
         gpsStartTime = time.time()
+        # This is stored  as a iotData file and sent in the next part of the code
         gpsData = bg95m3.getLocation()
         not quiet and print("gpsData:",gpsData)
+        rssi=None
         if gpsData:
             storeGPS(gpsData)
             checkGPSTime(gpsData)
-
-        # Send any available iotData files
-        time.sleep(2)
-        for fileName in os.listdir("data"):
-            with open("data/" + fileName, "r") as iotDataFile:
-                not quiet and print("Sending ",fileName," to iotCache...")
-                iotData = json.load(iotDataFile)
-                iotData["user"] = settings.get("USER")
-                iotData["deviceID"] = settings.get("DEVICEID") 
-                # url = "http://somerville.noip.me:37007/status?user=david"
-                url = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
-                not quiet and print("url:",url)
-                result=bg95m3.httpGet(url)
-                if result:
-                    filesSent+=1
-                    not quiet and print("remove:",fileName)
-                    os.remove("data/" + fileName)
-                else:
-                    # Stop trying to send if a send fails
-                    break
-                # Only process one file per event loop
-                # break
-                time.sleep(1)
+            gpsSeconds = time.time() - gpsStartTime
+        if bg95m3.lteConnect():
+            # Send any available iotData files
+            time.sleep(2)
+            for fileName in os.listdir("data"):
+                with open("data/" + fileName, "r") as iotDataFile:
+                    not quiet and print("Sending ",fileName," to iotCache...")
+                    iotData = json.load(iotDataFile)
+                    iotData["user"] = settings.get("USER")
+                    iotData["deviceID"] = settings.get("DEVICEID") 
+                    # url = "http://somerville.noip.me:37007/status?user=david"
+                    url = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                    not quiet and print("url:",url)
+                    result=bg95m3.httpGet(url)
+                    if result:
+                        filesSent+=1
+                        not quiet and print("remove:",fileName)
+                        os.remove("data/" + fileName)
+                    else:
+                        # Stop trying to send if a send fails
+                        break
+                    # Only process one file per event loop
+                    # break
+                    time.sleep(1)
+            rssi = bg95m3.getRSSI()
+            not quiet and print("rssi:",rssi)
 
         # Store IOT info 
         # This is stored as a iotData file and only sent on the next send cycle
-        storeIOT(bg95m3,time.time() - gpsStartTime,time.time() - sendSecondStart,filesSent)
-
-
-        # print("Power off")
+        storeIOT(bg95m3,gpsSeconds,time.time() - sendSecondStart,filesSent,rssi)
         bg95m3.powerOff()
-        # del bg95m3
 
+# Uncomment next two lines to test doLTE
 # doLTE()
 # sys.exit(0)
 
 # Main event loop
 while True:
+    # Exit loop if userButton on Sixfab board is pressed
+    if userButton.value() == 0:
+        print("Exit mainLoop")
+        for x in range(4):
+            ledFlash()
+        break
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
