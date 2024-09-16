@@ -306,7 +306,7 @@ while True:
             ledFlash()
         storeClimate()
         storeVehicle()
-        LTEsuccess = doLTE(doGPS=False)
+        LTEsuccess = doLTE(doGPS=True)
         if not LTEsuccess:
             doWifi()
 

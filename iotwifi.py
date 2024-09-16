@@ -31,7 +31,7 @@ class IOTWifi:
         self.wlan = network.WLAN(network.STA_IF)
         not self.quiet and print("Connecting to " + self.settings.get("SSID") + ":")
         self.wlan.active(True)
-        # Note SSID is case sensitive - make sure it ios GL24 not gl24
+        # Note SSID is case sensitive i.e. make sure it is gl24 not GL24
         network.hostname(self.settings.get("HOSTNAME"))
         self.wlan.connect(self.settings.get("SSID"), self.settings.get("PASSWORD"))
         connectCount = 0
