@@ -11,6 +11,9 @@ from  bme688 import BME680_I2C
 from bg95m3 import Bg95m3
 from ina219 import INA219
 from logging import DEBUG
+from iotwifi import IOTWifi
+
+
 
 quiet=False
 
@@ -38,6 +41,10 @@ ds = DS3231(i2c)
 bme688 = BME680_I2C(i2c,address=0x76)
 ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
 ina.configure()
+
+# Make a wifi object incase I need to try and send over wifi if LTE not connecting
+wifi = IOTWifi(quiet)
+
 
 # Set current pico RTC time to time from DS3231 RTC module
 rtc = machine.RTC()
@@ -126,16 +133,20 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
-def storeIOT(bg95m3,gpsSeconds,sendSeconds,filesSent,rssi):
+def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent):
     iotData = {}
     iotData["appID"] = IOT_ID
     iotData["sensorTimestamp"] = time.time()
     if rssi:
         iotData["RSSI"] = rssi 
-    iotData["gpsSeconds"] = gpsSeconds
+    if gpsSeconds:
+        iotData["gpsSeconds"] = gpsSeconds
     iotData["sendSeconds"] = sendSeconds
     iotData["uptimeSeconds"] = time.time() - upTimeStart
-    iotData["filesSent"] = filesSent
+    if filesSent:
+        iotData["filesSent"] = filesSent
+    if wifiFilesSent:
+        iotData["wififilesSent"] = wifiFilesSent
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
     not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
@@ -179,6 +190,7 @@ def doLTE(doGPS=True):
     if not bg95m3.powerOn():
         # No successful LTE modem startup, give up until next time
         bg95m3.powerOff()
+        return False
     else:
         rssi=None
         # GPS processing 
@@ -194,10 +206,9 @@ def doLTE(doGPS=True):
 
         # Send any available iotData files
         if bg95m3.lteConnect():
-            time.sleep(2)
             for fileName in os.listdir("data"):
                 with open("data/" + fileName, "r") as iotDataFile:
-                    not quiet and print("Sending ",fileName," to iotCache...")
+                    not quiet and print("Sending ",fileName," to iotCache over LTE...")
                     iotData = json.load(iotDataFile)
                     iotData["user"] = settings.get("USER")
                     iotData["deviceID"] = settings.get("DEVICEID") 
@@ -218,15 +229,56 @@ def doLTE(doGPS=True):
             rssi = bg95m3.getRSSI()
             not quiet and print("rssi:",rssi)
 
-        # Store IOT info 
-        # This is stored as a iotData file and only sent on the next send cycle
-        storeIOT(bg95m3,gpsSeconds,time.time() - sendSecondStart,filesSent,rssi)
-        bg95m3.powerOff()
+            # Store IOT info 
+            # This is stored as a iotData file and only sent on the next send cycle
+            storeIOT(gpsSeconds,time.time() - sendSecondStart,filesSent,rssi,None)
+            bg95m3.powerOff()
+            return True
+        else:
+            # lteConnect failed
+            bg95m3.powerOff()
+            return False           
+
+def doWifi():
+    sendSecondStart = time.time()
+    wifiFilesSent=0
+    gpsSeconds=None
+    if wifi.connect():
+        # Send any available iotData files
+        time.sleep(2)
+        for fileName in os.listdir("data"):
+            with open("data/" + fileName, "r") as iotDataFile:
+                not quiet and print("Sending ",fileName," to iotCache over wifi...")
+                iotData = json.load(iotDataFile)
+                iotData["user"] = settings.get("USER")
+                iotData["deviceID"] = settings.get("DEVICEID") 
+                url = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                not quiet and print("url:",url)
+                result=wifi.send(url)
+                if result:
+                    wifiFilesSent+=1
+                    not quiet and print("remove:",fileName)
+                    os.remove("data/" + fileName)
+                else:
+                    # Stop trying to send if a send fails
+                    break
+                # Only process one file per event loop
+                # break
+                time.sleep(1)
+        wifi.powerOff()
+        storeIOT(gpsSeconds,time.time() - sendSecondStart,None,None,wifiFilesSent)
+        return True
+    else:
+        return False
 
 not quiet and print("*** First Send, no GPS",time.localtime())
 for x in range(2):
     ledFlash()
 doLTE(doGPS=False)
+# Always go trough a wifi cycle on startup
+# even if it fails it will shutdown the wifi components
+# at the end and save power
+doWifi()
 
 # sys.exit(0)
 
@@ -254,7 +306,9 @@ while True:
             ledFlash()
         storeClimate()
         storeVehicle()
-        doLTE()
+        LTEsuccess = doLTE(doGPS=False)
+        if not LTEsuccess:
+            doWifi()
 
 
     time.sleep(event_loop_seconds)
