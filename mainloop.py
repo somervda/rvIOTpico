@@ -100,9 +100,8 @@ def storeClimate():
     iotData["voc"] = round(statVOC.average,0)
     iotData["sensorTimestamp"] = time.time()
     iotData["appID"] = CLIMATE_ID
-    print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    print(file)
+    not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
             sensor_data_file.write(json.dumps(iotData))
     statCelsius.reset()
@@ -120,9 +119,8 @@ def storeVehicle():
     iotData["houseAmps"]= round((statAmps.average/1000),3)
     iotData["sensorTimestamp"] = time.time()
     iotData["appID"] = VEHICLE_ID
-    print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    print(file)
+    not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
             sensor_data_file.write(json.dumps(iotData))
     statVolts.reset()
@@ -138,9 +136,8 @@ def storeIOT(bg95m3,gpsSeconds,sendSeconds,filesSent,rssi):
     iotData["sendSeconds"] = sendSeconds
     iotData["uptimeSeconds"] = time.time() - upTimeStart
     iotData["filesSent"] = filesSent
-    not quiet and print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print(file)
+    not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
             sensor_data_file.write(json.dumps(iotData))
 
@@ -150,9 +147,8 @@ def storeGPS(gpsData):
     iotData["sensorTimestamp"] = time.time()
     iotData["latitude"] = gpsData["latitude"] 
     iotData["longitude"] = gpsData["longitude"] 
-    not quiet and print(iotData)
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print(file)
+    not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
             sensor_data_file.write(json.dumps(iotData))
 
@@ -175,7 +171,7 @@ def checkGPSTime(gpsData):
 
 
 
-def doLTE():
+def doLTE(doGPS=True):
     sendSecondStart = time.time()
     # Do LTE and GPS operations if we can connect
     bg95m3 = Bg95m3(quiet)
@@ -184,18 +180,20 @@ def doLTE():
         # No successful LTE modem startup, give up until next time
         bg95m3.powerOff()
     else:
-        # Get GPS info
-        gpsStartTime = time.time()
-        # This is stored  as a iotData file and sent in the next part of the code
-        gpsData = bg95m3.getLocation()
-        not quiet and print("gpsData:",gpsData)
         rssi=None
-        if gpsData:
-            storeGPS(gpsData)
-            checkGPSTime(gpsData)
-            gpsSeconds = time.time() - gpsStartTime
+        # GPS processing 
+        gpsStartTime = time.time()
+        if doGPS:
+            # This is stored  as a iotData file and sent in the next part of the code
+            gpsData = bg95m3.getLocation()
+            not quiet and print("gpsData:",gpsData)
+            if gpsData:
+                storeGPS(gpsData)
+                checkGPSTime(gpsData)
+        gpsSeconds = time.time() - gpsStartTime
+
+        # Send any available iotData files
         if bg95m3.lteConnect():
-            # Send any available iotData files
             time.sleep(2)
             for fileName in os.listdir("data"):
                 with open("data/" + fileName, "r") as iotDataFile:
@@ -225,8 +223,11 @@ def doLTE():
         storeIOT(bg95m3,gpsSeconds,time.time() - sendSecondStart,filesSent,rssi)
         bg95m3.powerOff()
 
-# Uncomment next two lines to test doLTE
-# doLTE()
+not quiet and print("*** First Send, no GPS",time.localtime())
+for x in range(2):
+    ledFlash()
+doLTE(doGPS=False)
+
 # sys.exit(0)
 
 # Main event loop
@@ -240,7 +241,7 @@ while True:
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
-        print("*** Do Sample:",time.localtime())
+        not quiet and print("*** Do Sample:",time.localtime())
         ledFlash()
         getClimate()
         getVehicle()
@@ -248,7 +249,7 @@ while True:
     # Is it LTE xmit time
     if (time.time() - lastSend >= settings.get('SEND_SECONDS')):
         lastSend = time.time() - (time.time() % settings.get('SEND_SECONDS') ) 
-        print("*** Do Send",time.localtime())
+        not quiet and print("*** Do Send",time.localtime())
         for x in range(2):
             ledFlash()
         storeClimate()
