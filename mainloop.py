@@ -206,6 +206,7 @@ def doLTE(doGPS=True):
 
         # Send any available iotData files
         if bg95m3.lteConnect():
+            fullSendSuccess=False
             for fileName in os.listdir("data"):
                 with open("data/" + fileName, "r") as iotDataFile:
                     not quiet and print("Sending ",fileName," to iotCache over LTE...")
@@ -220,8 +221,11 @@ def doLTE(doGPS=True):
                         filesSent+=1
                         not quiet and print("remove:",fileName)
                         os.remove("data/" + fileName)
+                        fullSendSuccess=True
                     else:
                         # Stop trying to send if a send fails
+                        not quiet and print("doLTE file send failed:",fileName)
+                        fullSendSuccess=False
                         break
                     # Only process one file per event loop
                     # break
@@ -233,7 +237,7 @@ def doLTE(doGPS=True):
             # This is stored as a iotData file and only sent on the next send cycle
             storeIOT(gpsSeconds,time.time() - sendSecondStart,filesSent,rssi,None)
             bg95m3.powerOff()
-            return True
+            return fullSendSuccess
         else:
             # lteConnect failed
             bg95m3.powerOff()
@@ -246,6 +250,7 @@ def doWifi():
     if wifi.connect():
         # Send any available iotData files
         time.sleep(2)
+        fullSendSuccess=False
         for fileName in os.listdir("data"):
             with open("data/" + fileName, "r") as iotDataFile:
                 not quiet and print("Sending ",fileName," to iotCache over wifi...")
@@ -259,15 +264,17 @@ def doWifi():
                     wifiFilesSent+=1
                     not quiet and print("remove:",fileName)
                     os.remove("data/" + fileName)
+                    fullSendSuccess=True
                 else:
                     # Stop trying to send if a send fails
+                    fullSendSuccess=False
                     break
                 # Only process one file per event loop
                 # break
                 time.sleep(1)
         wifi.powerOff()
         storeIOT(gpsSeconds,time.time() - sendSecondStart,None,None,wifiFilesSent)
-        return True
+        return fullSendSuccess
     else:
         return False
 
@@ -307,7 +314,9 @@ while True:
         storeClimate()
         storeVehicle()
         LTEsuccess = doLTE(doGPS=True)
+        not quiet and print("lteSuccess:",LTEsuccess)
         if not LTEsuccess:
+            not quiet and print("doWIFI")
             doWifi()
 
 
