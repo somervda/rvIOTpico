@@ -213,8 +213,7 @@ def doLTE(doGPS=True):
                     iotData = json.load(iotDataFile)
                     iotData["user"] = settings.get("USER")
                     iotData["deviceID"] = settings.get("DEVICEID") 
-                    # url = "http://somerville.noip.me:37007/status?user=david"
-                    url = 'http://somerville.noip.me:37007/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                    url = 'http://' +  settings.get("LOGGERHOST") + ':' +  str(settings.get("LOGGERPORT")) + '/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
                     not quiet and print("url:",url)
                     result=bg95m3.httpGet(url)
                     if result:
@@ -234,8 +233,29 @@ def doLTE(doGPS=True):
             not quiet and print("rssi:",rssi)
 
             # Store IOT info 
-            # This is stored as a iotData file and only sent on the next send cycle
+            # This is stored as a iotData file 
             storeIOT(gpsSeconds,time.time() - sendSecondStart,filesSent,rssi,None)
+            # If all files had been sent successfully , try to also send the IOT info we just created
+            # This is optional send so is not counted against successful files sends, otherwise IOT application
+            # data is sent next send cycle
+            if fullSendSuccess:
+                for fileName in os.listdir("data"):
+                    with open("data/" + fileName, "r") as iotDataFile:
+                        not quiet and print("Sending optional ",fileName," to iotCache over LTE...")
+                        iotData = json.load(iotDataFile)
+                        iotData["user"] = settings.get("USER")
+                        iotData["deviceID"] = settings.get("DEVICEID") 
+                        if iotData["filesSent"]:
+                            iotData["filesSent"] = iotData["filesSent"] + 1
+                        url = 'http://' +  settings.get("LOGGERHOST") + ':' +  str(settings.get("LOGGERPORT")) + '/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                        not quiet and print("url:",url)
+                        result=bg95m3.httpGet(url)
+                        if result:
+                            not quiet and print("remove:",fileName)
+                            os.remove("data/" + fileName)
+                        # Only send one file
+                        break
+            # Clean up
             bg95m3.powerOff()
             return fullSendSuccess
         else:

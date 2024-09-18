@@ -68,7 +68,7 @@ class Bg95m3:
             result = self.picoLTE.http.get()
             # not self.quiet and print(result)
             # Read the response after 5 seconds.
-            time.sleep(2)
+            time.sleep(5)
             result = self.picoLTE.http.read_response()
             not self.quiet and print(result)
             if result["status"] == Status.SUCCESS:

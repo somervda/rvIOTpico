@@ -51,6 +51,7 @@ class IOTWifi:
 
     def send(self,url):
         not self.quiet and print("wifi send:",url)
+        self.ledFlash()
         try:
             wCli = MicroWebCli(url)
             wCli.OpenRequest()

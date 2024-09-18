@@ -7,7 +7,7 @@ import time
 # Any exception in mainloop will result in a exception.txt
 # to be written 
 # Press the user button on the sixfab pico board
-# to exit the main loop and get access to the pico 
+# to exit the main loop and get access to REPL
 
 led = machine.Pin("LED", machine.Pin.OUT)
 def ledFlash():

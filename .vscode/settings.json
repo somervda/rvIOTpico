@@ -3,6 +3,8 @@
     "DEVICEID",
     "gettime",
     "gmtime",
+    "LOGGERHOST",
+    "LOGGERPORT",
     "mday",
     "mpremote",
     "pico",
