@@ -84,7 +84,7 @@ def getClimate():
     statCelsius.addSample(bme688.temperature)
     statHumidity.addSample(bme688.humidity)
     statHPa.addSample(bme688.pressure)
-    time.sleep(2)
+    time.sleep(0.5)
     statVOC.addSample(bme688.gas)
 
 def getVehicle():
@@ -104,7 +104,10 @@ def storeClimate():
     iotData["celsius"] = round(statCelsius.average,2)
     iotData["hPa"] = round(statHPa.average,1)
     iotData["humidity"] = round(statHumidity.average,0)
-    iotData["voc"] = round(statVOC.average,0)
+    if time.time() - upTimeStart > 10800:
+        # Only start recording VOC info after the probe has been running for 3 hours
+        # this helps reduce the impact of the BMR688 warm up time
+        iotData["voc"] = round(statVOC.average,0)
     iotData["sensorTimestamp"] = time.time()
     iotData["appID"] = CLIMATE_ID
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
