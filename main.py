@@ -21,7 +21,8 @@ for n in range(10):
 
 
 try:
-    import mainloop
+    if True:
+        import mainloop
 except Exception as e:
     f=open('exception.txt', 'w')  
     f.write(str(time.localtime()) + "\n")
