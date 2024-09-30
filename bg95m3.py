@@ -27,12 +27,12 @@ class Bg95m3:
     def lteConnect(self):
         try:
             not self.quiet and print("lteConnect")
-            command = "AT+CSQ"
-            result = self.picoLTE.atcom.send_at_comm(command)
-            not self.quiet and print( "Reset AT to factory", result)
-            if result["status"] != Status.SUCCESS :
-                print("Error: Reset AT to factory", result)
-                return None
+            # command = "AT+CSQ"
+            # result = self.picoLTE.atcom.send_at_comm(command)
+            # not self.quiet and print( "Reset AT to factory", result)
+            # if result["status"] != Status.SUCCESS :
+            #     print("Error: Reset AT to factory", result)
+            #     return None
             # See https://arduino103.blogspot.com/2024/02/sixfab-pico-lte-premier-test-de.html  
             # Good result is 1 or 5
             # 0: Not registered, the device is currently not searching for new operator.
