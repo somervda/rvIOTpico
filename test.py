@@ -13,7 +13,9 @@ else:
     # result=bg95m3.httpGet(url)
     # print("send:",result)
     # print("rssi:",bg95m3.getRSSI())
-    print(bg95m3.getLocation())
+    # print(bg95m3.getLocation())
+    bg95m3.lteConnect()
+    print("rssi:",bg95m3.getRSSI())
 
     print("Power off")
     bg95m3.powerOff()

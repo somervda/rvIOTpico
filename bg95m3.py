@@ -33,6 +33,11 @@ class Bg95m3:
             # if result["status"] != Status.SUCCESS :
             #     print("Error: Reset AT to factory", result)
             #     return None
+            command = "AT+COPS"
+            result = self.picoLTE.atcom.send_at_comm(command)
+            not self.quiet and print( "Get available networks (AT+COPS=?) ", result)
+ 
+
             # See https://arduino103.blogspot.com/2024/02/sixfab-pico-lte-premier-test-de.html  
             # Good result is 1 or 5
             # 0: Not registered, the device is currently not searching for new operator.
