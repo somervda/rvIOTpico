@@ -18,7 +18,6 @@ from iotwifi import IOTWifi
 quiet=False
 
 settings = Settings()
-SHUNT_OHMS = 0.0015
 CLIMATE_ID = 1
 VEHICLE_ID = 3
 LOCATION_ID = 4
@@ -280,7 +279,7 @@ def doWifi():
                 iotData = json.load(iotDataFile)
                 iotData["user"] = settings.get("USER")
                 iotData["deviceID"] = settings.get("DEVICEID") 
-                url = 'http://somerville.noip.me/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
+                url = 'http://' + settings.get("LOGGERHOST") + ':' + str(settings.get("LOGGERPORT")) + '/write?iotData=' + json.dumps(iotData).replace("\'","\"").replace(" ","")
                 not quiet and print("url:",url)
                 result=wifi.send(url)
                 if result:
@@ -304,7 +303,7 @@ def doWifi():
 not quiet and print("*** First Send, no GPS",time.localtime())
 for x in range(2):
     ledFlash()
-doLTE(doGPS=False)
+# doLTE(doGPS=False)
 # Always go through a wifi cycle on startup
 # even if it fails it will shutdown the wifi components
 # at the end and save power

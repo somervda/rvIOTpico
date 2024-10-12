@@ -3,7 +3,7 @@ import machine
 import time
 from settings import Settings
 # from microWebCli import MicroWebCli
-import socket
+import requests
 
 class IOTWifi:
 
@@ -53,43 +53,21 @@ class IOTWifi:
     def send(self,url):
         not self.quiet and print("wifi send:",url)
         self.ledFlash()
-        _, _, host, path = url.split('/', 3)
-        addr = socket.getaddrinfo(host, self.settings.get("LOGGERPORT"))[0][-1]
-        s = socket.socket()
-        s.connect(addr)
-        s.send(bytes('GET /%s HTTP/1.0\r\nHost: %s\r\n\r\n' % (path, host), 'utf8'))
-        while True:
-            data = s.recv(100)
-            if data:
-                print(str(data, 'utf8'), end='')
+
+
+        try:
+            resp = requests.get(url)
+            not self.quiet and print("wifi send status:",resp.status_code)
+            if resp.status_code==200:
+                return True
             else:
-                break
-        s.close()
-        return True
-
-
-        # try:
-            # wCli = MicroWebCli(url)
-            # wCli.OpenRequest()
-            # buf = memoryview(bytearray(1024))
-            # resp = wCli.GetResponse()
-            # if resp.IsSuccess():
-            #     if not resp.IsClosed():
-            #         x = resp.ReadContentInto(buf)
-            #         if x < len(buf):
-            #             buf = buf[:x]
-            #         not self.quiet  and print(str(bytearray(buf), "utf-8"))
-            #     not self.quiet  and print(
-            #         'Ok Response:' ,resp.GetStatusCode(),resp.ReadContent())
-            #     return True
-            # else:
-            #     not self.quiet  and print(
-            #         'Fail Response:'  ,resp.GetStatusCode(),resp.ReadContent(),retryCount)
-            #     return False
-        # except Exception as error:
-        #     # handle the exception
-        #     not self.quiet  and print("An exception occurred:", error)
-        #     return False
+                not self.quiet  and print(
+                    'Fail Response:'  ,resp.status_code,resp,text)
+                return False
+        except Exception as error:
+            # handle the exception
+            not self.quiet  and print("A wifi exception occurred:", error)
+            return False
 
     def powerOff(self):
         not self.quiet and print("iotwifi power off")

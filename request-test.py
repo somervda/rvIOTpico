@@ -1,5 +1,5 @@
 import network
-import socket 
+import requests 
 from settings import Settings
 import time
 settings = Settings()
@@ -24,17 +24,7 @@ while not wlan.isconnected() and wlan.status() >= 0:
 print('network config:', wlan.ipconfig('addr4'))
 
 
-url="http://somerville.noip.me/hello"
-_, _, fullhost, path = url.split('/', 3)
-addr = socket.getaddrinfo(host, 37007)[0][-1]
-s = socket.socket()
-s.connect(addr)
-s.send(bytes('GET /%s HTTP/1.0\r\nHost: %s\r\n\r\n' % (path, host), 'utf8'))
-while True:
-    data = s.recv(100)
-    if data:
-        print(str(data, 'utf8'), end='')
-    else:
-        break
-s.close()
+url="http://somerville.noip.me:37007/hello"
+res = requests.get(url)
+print(res.status_code)
 
