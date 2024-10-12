@@ -14,6 +14,7 @@ else:
     # print("send:",result)
     # print("rssi:",bg95m3.getRSSI())
     # print(bg95m3.getLocation())
+    print("rssi:",bg95m3.getRSSI())
     bg95m3.lteConnect()
     print("rssi:",bg95m3.getRSSI())
 
