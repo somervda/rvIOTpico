@@ -89,7 +89,11 @@ class Bg95m3:
         try:
             command = "AT+CSQ"
             result = self.picoLTE.atcom.send_at_comm(command)
+            not self.quiet and print("getRSSI", result)
             rssi= result['response'][0].split(":")[1].split(',')[0]
+            if int(rssi.strip()) == 99:
+                print("CSQ unknown or not detectable - 99")
+                return None
             return (int(rssi.strip())*2)-109
         except:
             print("Error: getRSSI")
