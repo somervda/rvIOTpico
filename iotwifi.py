@@ -2,7 +2,8 @@ import network
 import machine
 import time
 from settings import Settings
-from microWebCli import MicroWebCli
+# from microWebCli import MicroWebCli
+import socket
 
 class IOTWifi:
 
@@ -52,28 +53,43 @@ class IOTWifi:
     def send(self,url):
         not self.quiet and print("wifi send:",url)
         self.ledFlash()
-        try:
-            wCli = MicroWebCli(url)
-            wCli.OpenRequest()
-            buf = memoryview(bytearray(1024))
-            resp = wCli.GetResponse()
-            if resp.IsSuccess():
-                if not resp.IsClosed():
-                    x = resp.ReadContentInto(buf)
-                    if x < len(buf):
-                        buf = buf[:x]
-                    not self.quiet  and print(str(bytearray(buf), "utf-8"))
-                not self.quiet  and print(
-                    'Ok Response:' ,resp.GetStatusCode(),resp.ReadContent())
-                return True
+        _, _, host, path = url.split('/', 3)
+        addr = socket.getaddrinfo(host, self.settings.get("LOGGERPORT"))[0][-1]
+        s = socket.socket()
+        s.connect(addr)
+        s.send(bytes('GET /%s HTTP/1.0\r\nHost: %s\r\n\r\n' % (path, host), 'utf8'))
+        while True:
+            data = s.recv(100)
+            if data:
+                print(str(data, 'utf8'), end='')
             else:
-                not self.quiet  and print(
-                    'Fail Response:'  ,resp.GetStatusCode(),resp.ReadContent(),retryCount)
-                return False
-        except Exception as error:
-            # handle the exception
-            not self.quiet  and print("An exception occurred:", error)
-            return False
+                break
+        s.close()
+        return True
+
+
+        # try:
+            # wCli = MicroWebCli(url)
+            # wCli.OpenRequest()
+            # buf = memoryview(bytearray(1024))
+            # resp = wCli.GetResponse()
+            # if resp.IsSuccess():
+            #     if not resp.IsClosed():
+            #         x = resp.ReadContentInto(buf)
+            #         if x < len(buf):
+            #             buf = buf[:x]
+            #         not self.quiet  and print(str(bytearray(buf), "utf-8"))
+            #     not self.quiet  and print(
+            #         'Ok Response:' ,resp.GetStatusCode(),resp.ReadContent())
+            #     return True
+            # else:
+            #     not self.quiet  and print(
+            #         'Fail Response:'  ,resp.GetStatusCode(),resp.ReadContent(),retryCount)
+            #     return False
+        # except Exception as error:
+        #     # handle the exception
+        #     not self.quiet  and print("An exception occurred:", error)
+        #     return False
 
     def powerOff(self):
         not self.quiet and print("iotwifi power off")
