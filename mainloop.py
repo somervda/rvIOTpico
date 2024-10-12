@@ -303,7 +303,7 @@ def doWifi():
 not quiet and print("*** First Send, no GPS",time.localtime())
 for x in range(2):
     ledFlash()
-# doLTE(doGPS=False)
+doLTE(doGPS=False)
 # Always go through a wifi cycle on startup
 # even if it fails it will shutdown the wifi components
 # at the end and save power

@@ -27,13 +27,13 @@ class Bg95m3:
     def lteConnect(self):
         try:
             not self.quiet and print("lteConnect")
-            command = "AT+CSQ"
-            result = self.picoLTE.atcom.send_at_comm(command)
-            not self.quiet and print( "Reset AT to factory", result)
-            if result["status"] != Status.SUCCESS :
-                print("Error: Reset AT to factory", result)
+            # command = "AT+CSQ"
+            # result = self.picoLTE.atcom.send_at_comm(command)
+            # not self.quiet and print( "Reset AT to factory", result)
+            # if result["status"] != Status.SUCCESS :
+            #     print("Error: Reset AT to factory", result)
                 # return None
-            time.sleep(2)
+
             command = "AT+COPS"
             result = self.picoLTE.atcom.send_at_comm(command)
             not self.quiet and print( "Get available networks (AT+COPS=?) ", result)
