@@ -34,9 +34,9 @@ class Bg95m3:
             #     print("Error: Reset AT to factory", result)
                 # return None
 
-            command = "AT+COPS"
-            result = self.picoLTE.atcom.send_at_comm(command)
-            not self.quiet and print( "Get available networks (AT+COPS=?) ", result)
+            # command = "AT+COPS"
+            # result = self.picoLTE.atcom.send_at_comm(command)
+            # not self.quiet and print( "Get available networks (AT+COPS=?) ", result)
         
 
             # See https://arduino103.blogspot.com/2024/02/sixfab-pico-lte-premier-test-de.html  
@@ -47,6 +47,7 @@ class Bg95m3:
             # 3: Registration denied.
             # 4: Unknown. For example, out of range.
             # 5: Registered, roaming. The device is registered on a foreign (national or international) network.
+            not self.quiet and print( "Registering Network...")
             result = self.picoLTE.network.register_network()
             not self.quiet and print( "Register Network", result)
             if result["status"] != Status.SUCCESS :
@@ -144,4 +145,31 @@ class Bg95m3:
     def powerOff(self):
         not self.quiet and print("Bg95m3 powerOff")
         self.picoLTE.base.power_off()
+
+    def check_apn(self):
+        result = self.picoLTE.network.check_apn()
+        print("check_apn:", result)
+
+    def check_network_registration(self):
+        result = self.picoLTE.network.check_network_registration()
+        print("check_network_registration:", result)
+
+    def check_pdp_context_status(self):
+        result = self.picoLTE.network.check_pdp_context_status()
+        print("check_pdp_context_status", result)
+
+    def factory_reset(self):
+        not self.quiet and print("Factory Reset...")
+        command = "AT+CSQ"
+        result = self.picoLTE.atcom.send_at_comm(command)
+        not self.quiet and print( "Reset AT to factory", result)
+        if result["status"] != Status.SUCCESS :
+            print("Error: Reset AT to factory", result)
+            return None
+
+    def get_available_networks(self):
+        command = "AT+COPS"
+        result = self.picoLTE.atcom.send_at_comm(command)
+        not self.quiet and print( "Get available networks (AT+COPS=?) ", result)
+
 

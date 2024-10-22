@@ -35,11 +35,18 @@ ledFlash()
 userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 
 # Create I2c interface objects
+# Circuit python lib https://github.com/robert-hh/INA219
 i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
+for device in i2c.scan():
+    not quiet and print("I2C hexadecimal address: ", hex(device))
 ds = DS3231(i2c)
 bme688 = BME680_I2C(i2c,address=0x76)
 ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
 ina.configure()
+
+
+# print("Voltage, current : ",ina.voltage(),ina.current())
+# sys.exit(0)
 
 # Make a wifi object incase I need to try and send over wifi if LTE not connecting
 wifi = IOTWifi(quiet)
@@ -301,6 +308,9 @@ def doWifi():
         return False
 
 not quiet and print("*** First Send, no GPS",time.localtime())
+# for testing
+getVehicle()
+storeVehicle()
 for x in range(2):
     ledFlash()
 doLTE(doGPS=False)
