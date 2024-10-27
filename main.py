@@ -21,7 +21,7 @@ for n in range(10):
 
 
 try:
-    if True:
+    if False:
         import mainloop
 except Exception as e:
     f=open('exception.txt', 'w')  

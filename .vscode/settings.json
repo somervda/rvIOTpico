@@ -3,6 +3,7 @@
     "DEVICEID",
     "gettime",
     "gmtime",
+    "isconnected",
     "LOGGERHOST",
     "LOGGERPORT",
     "mday",
