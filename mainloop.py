@@ -142,7 +142,7 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
-def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=99):
+def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=-1):
     iotData = {}
     iotData["appID"] = IOT_ID
     iotData["sensorTimestamp"] = time.time()
