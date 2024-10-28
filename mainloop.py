@@ -142,7 +142,7 @@ def storeVehicle():
     statVolts.reset()
     statAmps.reset()
 
-def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent):
+def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=99):
     iotData = {}
     iotData["appID"] = IOT_ID
     iotData["sensorTimestamp"] = time.time()
@@ -156,6 +156,7 @@ def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent):
         iotData["filesSent"] = filesSent
     if wifiFilesSent:
         iotData["wififilesSent"] = wifiFilesSent
+    iotData["ssid"] = ssidIndex
     file = "data/" + str(time.time()) + getUniqueMs() + ".json"
     not quiet and print("Saving... ",file,iotData)
     with open(file, "w") as sensor_data_file:
@@ -276,7 +277,8 @@ def doWifi():
     sendSecondStart = time.time()
     wifiFilesSent=0
     gpsSeconds=None
-    if wifi.connect():
+    ssidIndex = wifi.connect()
+    if ssidIndex != None:
         # Send any available iotData files
         time.sleep(2)
         fullSendSuccess=False
@@ -302,7 +304,7 @@ def doWifi():
                 # break
                 time.sleep(1)
         wifi.powerOff()
-        storeIOT(gpsSeconds,time.time() - sendSecondStart,None,None,wifiFilesSent)
+        storeIOT(gpsSeconds,time.time() - sendSecondStart,None,None,wifiFilesSent,ssidIndex)
         return fullSendSuccess
     else:
         return False

@@ -51,12 +51,12 @@ class IOTWifi:
                 PASSWORD=self.settings.get("PASSWORD05")
             not self.quiet and print("ssidIndex:",ssidIndex,SSID,PASSWORD)
             if SSID == None:
-                return False
+                return None
             else:
                 if self.tryConnect(self.settings.get("HOSTNAME"),SSID, PASSWORD):
                      not self.quiet and print("Connected! ifconfig:",self.wlan.ifconfig()[0],self.wlan.ifconfig()[1],self.wlan.ifconfig()[2],self.wlan.ifconfig()[3])
-                     return True
-        return False
+                     return ssidIndex
+        return None
 
 
     def tryConnect(self,HOSTNAME,SSID,PASSWORD):
