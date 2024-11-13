@@ -23,6 +23,12 @@ VEHICLE_ID = 3
 LOCATION_ID = 4
 IOT_ID = 7
 
+
+doClimate=True
+doVehicle=True
+doDSRTC=True
+
+
 led = machine.Pin("LED", machine.Pin.OUT)
 def ledFlash():
     led.on()
@@ -39,11 +45,25 @@ userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
 for device in i2c.scan():
     not quiet and print("I2C hexadecimal address: ", hex(device))
-ds = DS3231(i2c)
-bme688 = BME680_I2C(i2c,address=0x76)
-ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
-ina.configure()
 
+# Check if DS3231, INA219 and BME688 are present
+#  on the i2c bus
+print(i2c.scan())
+if i2c.scan().count(0x68):
+    ds = DS3231(i2c)
+else:
+    doDSRTC=False
+if i2c.scan().count(0x76):
+    bme688 = BME680_I2C(i2c,address=0x76)
+else:
+    doClimate=False
+if i2c.scan().count(0x40):
+    ina = INA219(settings.get('SHUNT_OHMS'), i2c, log_level=DEBUG)
+    ina.configure()
+else:
+    doVehicle=False
+
+not quiet and print("I2C flags - DS3231  RTC:",doDSRTC," Climate:",doClimate," Vehicle:",doVehicle)
 
 # print("Voltage, current : ",ina.voltage(),ina.current())
 # sys.exit(0)
@@ -54,8 +74,10 @@ wifi = IOTWifi(quiet)
 
 # Set current pico RTC time to time from DS3231 RTC module
 rtc = machine.RTC()
-not quiet and print("pico RTC , DS3231 RTC:",rtc.datetime(),",",ds.datetime())
-rtc.datetime(ds.datetime())
+not quiet and print("pico RTC:",rtc.datetime())
+if doDSRTC:
+    not quiet and print("DS3231 RTC:",ds.datetime())
+    rtc.datetime(ds.datetime())
 upTimeStart = time.time()
 # Initialize last times data was collected and sent (Start of last minute and hour)
 lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
@@ -84,63 +106,67 @@ def getUniqueMs():
 
 
 def getClimate():
-    global bme688
-    global statHumidity,statVOC,statCelsius,statHPa
-    # Get the climate data from the BME688 sensor and add to the accumulators
-    statCelsius.addSample(bme688.temperature)
-    statHumidity.addSample(bme688.humidity)
-    statHPa.addSample(bme688.pressure)
-    time.sleep(0.5)
-    statVOC.addSample(bme688.gas)
+    if doClimate:
+        global bme688
+        global statHumidity,statVOC,statCelsius,statHPa
+        # Get the climate data from the BME688 sensor and add to the accumulators
+        statCelsius.addSample(bme688.temperature)
+        statHumidity.addSample(bme688.humidity)
+        statHPa.addSample(bme688.pressure)
+        time.sleep(0.1)
+        statVOC.addSample(bme688.gas)
 
 def getVehicle():
-    global statVolts,statAmps
-    global ina
-    # Get the power data from the INA219 sensor and add to the accumulators
-    statVolts.addSample(ina.voltage())
-    statAmps.addSample(ina.current())
+    if doVehicle:
+        global statVolts,statAmps
+        global ina
+        # Get the power data from the INA219 sensor and add to the accumulators
+        statVolts.addSample(ina.voltage())
+        statAmps.addSample(ina.current())
 
 
 def storeClimate():
     # Get averages for any climate statistics
     # store them in a date stamped json file 
     # for sending to the IOT server 
-    global statHumidity,statVOC,statCelsius,statHPa
-    iotData = {}
-    iotData["celsius"] = round(statCelsius.average,2)
-    iotData["hPa"] = round(statHPa.average,1)
-    iotData["humidity"] = round(statHumidity.average,0)
-    if time.time() - upTimeStart > 10800:
-        # Only start recording VOC info after the probe has been running for 3 hours
-        # this helps reduce the impact of the BMR688 warm up time
-        iotData["voc"] = round(statVOC.average,0)
-    iotData["sensorTimestamp"] = time.time()
-    iotData["appID"] = CLIMATE_ID
-    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print("Saving... ",file,iotData)
-    with open(file, "w") as sensor_data_file:
-            sensor_data_file.write(json.dumps(iotData))
-    statCelsius.reset()
-    statHPa.reset()
-    statHumidity.reset()
-    statVOC.reset()
+    if doClimate:
+        global statHumidity,statVOC,statCelsius,statHPa
+        iotData = {}
+        iotData["celsius"] = round(statCelsius.average,2)
+        iotData["hPa"] = round(statHPa.average,1)
+        iotData["humidity"] = round(statHumidity.average,0)
+        if time.time() - upTimeStart > 10800:
+            # Only start recording VOC info after the probe has been running for 3 hours
+            # this helps reduce the impact of the BMR688 warm up time
+            iotData["voc"] = round(statVOC.average,0)
+        iotData["sensorTimestamp"] = time.time()
+        iotData["appID"] = CLIMATE_ID
+        file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+        not quiet and print("Saving... ",file,iotData)
+        with open(file, "w") as sensor_data_file:
+                sensor_data_file.write(json.dumps(iotData))
+        statCelsius.reset()
+        statHPa.reset()
+        statHumidity.reset()
+        statVOC.reset()
 
 def storeVehicle():
     # Get averages for any vehicle statistics
     # store them in a date stamped json file 
     # for sending to the IOT server 
-    global statVolts,statAmps
-    iotData = {}
-    iotData["houseVolts"] = round(statVolts.average,2)
-    iotData["houseAmps"]= round((statAmps.average/1000),3)
-    iotData["sensorTimestamp"] = time.time()
-    iotData["appID"] = VEHICLE_ID
-    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print("Saving... ",file,iotData)
-    with open(file, "w") as sensor_data_file:
-            sensor_data_file.write(json.dumps(iotData))
-    statVolts.reset()
-    statAmps.reset()
+    if doVehicle:
+        global statVolts,statAmps
+        iotData = {}
+        iotData["houseVolts"] = round(statVolts.average,2)
+        iotData["houseAmps"]= round((statAmps.average/1000),3)
+        iotData["sensorTimestamp"] = time.time()
+        iotData["appID"] = VEHICLE_ID
+        file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+        not quiet and print("Saving... ",file,iotData)
+        with open(file, "w") as sensor_data_file:
+                sensor_data_file.write(json.dumps(iotData))
+        statVolts.reset()
+        statAmps.reset()
 
 def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=-1):
     iotData = {}
@@ -183,10 +209,12 @@ def checkGPSTime(gpsData):
         or gpsData["day"] != picoRTC[2] or gpsData["hour"] != picoRTC[4] \
         or gpsData["minute"] != picoRTC[5]:
         # Update the RTCs
-        gmt=(gpsData["year"], gpsData["month"], gpsData["day"], gpsData["hour"], gpsData["minute"], gpsData["second"])
-        not quiet and print("RTC out of sync with GPS:",picoRTC,gmt)
-        ds.datetime(gmt)
-        rtc.datetime(ds.datetime())
+        gmtDS=(gpsData["year"], gpsData["month"], gpsData["day"], gpsData["hour"], gpsData["minute"], gpsData["second"])
+        not quiet and print("RTC out of sync with GPS:",picoRTC,gmtDS)
+        if doDSRTC:
+            ds.datetime(gmtDS)
+        gmtPico=(gpsData["year"], gpsData["month"], gpsData["day"],0, gpsData["hour"], gpsData["minute"], gpsData["second"],0)
+        rtc.datetime(gmtPico)
         not quiet and print("RTCs updated")
 
 
@@ -309,13 +337,15 @@ def doWifi():
     else:
         return False
 
-not quiet and print("*** First Send, no GPS",time.localtime())
-# for testing
-getVehicle()
-storeVehicle()
+not quiet and print("*** First LTE Send ",time.localtime())
+if doDSRTC:
+    # for testing and only if the i2c based RTC is available
+    # otherwise the time will be bad.
+    getVehicle()
+    storeVehicle()
 for x in range(2):
     ledFlash()
-doLTE(doGPS=False)
+doLTE(doGPS=True)
 # Always go through a wifi cycle on startup
 # even if it fails it will shutdown the wifi components
 # at the end and save power
