@@ -27,6 +27,7 @@ IOT_ID = 7
 doClimate=True
 doVehicle=True
 doDSRTC=True
+hasOLED=True
 
 
 led = machine.Pin("LED", machine.Pin.OUT)
@@ -62,8 +63,13 @@ if i2c.scan().count(0x40):
     ina.configure()
 else:
     doVehicle=False
+if i2c.scan().count(0x20) and i2c.scan().count(0x3C) :
+    # Set up ssd1306 (oled) and pcf8575 (IO Expander) objects
+    NotImplemented
+else:
+    hasOLED = False
 
-not quiet and print("I2C flags - DS3231  RTC:",doDSRTC," Climate:",doClimate," Vehicle:",doVehicle)
+not quiet and print("I2C flags - DS3231  RTC:",doDSRTC," Climate:",doClimate," Vehicle:",doVehicle," hasOLED:",hasOLED)
 
 # print("Voltage, current : ",ina.voltage(),ina.current())
 # sys.exit(0)
@@ -343,6 +349,8 @@ if doDSRTC:
     # otherwise the time will be bad.
     getVehicle()
     storeVehicle()
+getVehicle()
+sys.exit(0)
 for x in range(2):
     ledFlash()
 doLTE(doGPS=True)
@@ -361,6 +369,10 @@ while True:
         for x in range(4):
             ledFlash()
         break
+    # If the led display module is attached then check if one
+    # of the 2 status buttons has been pressed and display the 
+    # battery or climate data
+
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
