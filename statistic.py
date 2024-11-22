@@ -38,6 +38,9 @@ class Statistic:
 
     def get_duration(self):
         return time.time() - self.startTime
+    
+    def get_samples(self):
+        return self.samples
 
     def get_last(self):
         if self.samples>0:
@@ -48,3 +51,4 @@ class Statistic:
     average = property(get_average) 
     duration = property(get_duration) 
     lastValue = property(get_last) 
+    samples = property(get_samples)

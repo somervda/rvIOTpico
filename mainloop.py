@@ -7,11 +7,15 @@ import os
 from settings import Settings
 from ds3231 import DS3231
 from statistic import Statistic
-from  bme688 import BME680_I2C
+from bme688 import BME680_I2C
 from bg95m3 import Bg95m3
 from ina219 import INA219
 from logging import DEBUG
 from iotwifi import IOTWifi
+from writer import Writer
+from ssd1306 import SSD1306_I2C
+import pcf8575
+import freesansnum35
 
 
 
@@ -22,6 +26,9 @@ CLIMATE_ID = 1
 VEHICLE_ID = 3
 LOCATION_ID = 4
 IOT_ID = 7
+
+OLED_WIDTH = 128
+OLED_HEIGHT = 64
 
 
 doClimate=True
@@ -65,7 +72,8 @@ else:
     doVehicle=False
 if i2c.scan().count(0x20) and i2c.scan().count(0x3C) :
     # Set up ssd1306 (oled) and pcf8575 (IO Expander) objects
-    NotImplemented
+    oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c, addr=0x3C)
+    pcf = pcf8575.PCF8575(i2c, 0x20)
 else:
     hasOLED = False
 
@@ -342,6 +350,48 @@ def doWifi():
         return fullSendSuccess
     else:
         return False
+    
+def oledCenter(fontWidth,text):
+    charactersPerLine = OLED_WIDTH // fontWidth
+    textCharacters = len(text)
+    if textCharacters>=charactersPerLine:
+        return 0
+    else:
+        return ((charactersPerLine //2) - (textCharacters // 2)) * fontWidth
+    
+def oledDisplayValue(name,value):
+    oled.fill(0)
+    Writer.set_textpos(oled, 0, 0)
+    oled.text(name,  oledCenter(8,name), 0)
+    oled.line(0, 15, oled.width - 1, 15, 1)
+    # Use writer to write using the larger font
+    wri = Writer(oled, freesansnum35, verbose=False)
+    # Will base the centering on being able to fit 5 large characters on the line
+    Writer.set_textpos(oled, oledCenter(25,str(value)), 0)
+    wri.printstring(str(value))
+    oled.show()
+    time.sleep(3)
+    oled.fill(0)
+    oled.show()
+    
+def showOLEDPower():
+    # get the current amps,and voltage and show on the oled
+    if statAmps.samples >0:
+        if statAmps.lastValue<1:
+            oledDisplayValue("Amps",round(statAmps.lastValue,2))
+        else:
+            oledDisplayValue("Amps",round(statAmps.lastValue,1))
+    if statVolts.samples >0:
+        oledDisplayValue("Volts",round(statVolts.lastValue,2))
+
+def showOLEDClimate():
+    # get the current amps,and voltage and show on the oled
+    if statCelsius.samples >0:
+        oledDisplayValue("Fahrenheit",round((statCelsius.lastValue() * 1.8) + 32,1))
+    if statHumidity.samples >0:
+        oledDisplayValue("Humidity",round(statHumidity.lastValue(),0))
+
+
 
 not quiet and print("*** First LTE Send ",time.localtime())
 if doDSRTC:
@@ -372,6 +422,17 @@ while True:
     # If the led display module is attached then check if one
     # of the 2 status buttons has been pressed and display the 
     # battery or climate data
+    if hasOLED:
+        # Set the 2 i/o pins to check for button pushes to be high
+        pcf.pin(0,1)
+        pcf.pin(1,1)
+        if pcf.pin(0) == 0:
+            # Show the current power usage on the display
+            showOLEDPower()
+        if pcf.pin(1) == 0:
+            # show the current climate on the display
+            showOLEDClimate()
+   
 
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
@@ -396,4 +457,4 @@ while True:
             doWifi()
 
 
-    time.sleep(event_loop_seconds)
+    time.sleep(0.5)
