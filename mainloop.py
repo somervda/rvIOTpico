@@ -18,8 +18,10 @@ import pcf8575
 import freesansnum35
 
 
-
+#  Testing flags
 quiet=False
+skipLTE = True
+skipWiFi = True
 
 settings = Settings()
 CLIMATE_ID = 1
@@ -29,6 +31,7 @@ IOT_ID = 7
 
 OLED_WIDTH = 128
 OLED_HEIGHT = 64
+
 
 
 doClimate=True
@@ -50,7 +53,7 @@ userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 
 # Create I2c interface objects
 # Circuit python lib https://github.com/robert-hh/INA219
-i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=100000)
+i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=50000)
 for device in i2c.scan():
     not quiet and print("I2C hexadecimal address: ", hex(device))
 
@@ -72,7 +75,7 @@ else:
     doVehicle=False
 if i2c.scan().count(0x20) and i2c.scan().count(0x3C) :
     # Set up ssd1306 (oled) and pcf8575 (IO Expander) objects
-    oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c, addr=0x3C)
+    oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c, addr=0x3c)
     pcf = pcf8575.PCF8575(i2c, 0x20)
 else:
     hasOLED = False
@@ -235,6 +238,8 @@ def checkGPSTime(gpsData):
 
 
 def doLTE(doGPS=True):
+    if skipLTE:
+        return False
     sendSecondStart = time.time()
     # Do LTE and GPS operations if we can connect
     bg95m3 = Bg95m3(quiet)
@@ -316,6 +321,8 @@ def doLTE(doGPS=True):
             return False           
 
 def doWifi():
+    if skipWiFi:
+        return False
     sendSecondStart = time.time()
     wifiFilesSent=0
     gpsSeconds=None
@@ -360,6 +367,7 @@ def oledCenter(fontWidth,text):
         return ((charactersPerLine //2) - (textCharacters // 2)) * fontWidth
     
 def oledDisplayValue(name,value):
+    not quiet and print("oledDisplayValue:",name,value)
     oled.fill(0)
     Writer.set_textpos(oled, 0, 0)
     oled.text(name,  oledCenter(8,name), 0)
@@ -375,6 +383,7 @@ def oledDisplayValue(name,value):
     oled.show()
     
 def showOLEDPower():
+    not quiet and print("showOLEDPower")
     # get the current amps,and voltage and show on the oled
     if statAmps.samples >0:
         if statAmps.lastValue<1:
@@ -385,6 +394,7 @@ def showOLEDPower():
         oledDisplayValue("Volts",round(statVolts.lastValue,2))
 
 def showOLEDClimate():
+    not quiet and print("showOLEDClimate")
     # get the current amps,and voltage and show on the oled
     if statCelsius.samples >0:
         oledDisplayValue("Fahrenheit",round((statCelsius.lastValue() * 1.8) + 32,1))
