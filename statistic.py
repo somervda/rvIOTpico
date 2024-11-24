@@ -51,4 +51,4 @@ class Statistic:
     average = property(get_average) 
     duration = property(get_duration) 
     lastValue = property(get_last) 
-    samples = property(get_samples)
+    sampleCount = property(get_samples)

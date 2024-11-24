@@ -1,9 +1,11 @@
 import time
 import machine
+from machine import Pin, I2C
 import json
 import sys
 import os
 
+import freesansnum35
 from settings import Settings
 from ds3231 import DS3231
 from statistic import Statistic
@@ -15,13 +17,11 @@ from iotwifi import IOTWifi
 from writer import Writer
 from ssd1306 import SSD1306_I2C
 import pcf8575
-import freesansnum35
-
 
 #  Testing flags
 quiet=False
-skipLTE = True
-skipWiFi = True
+skipLTE = False
+skipWiFi = False
 
 settings = Settings()
 CLIMATE_ID = 1
@@ -31,7 +31,6 @@ IOT_ID = 7
 
 OLED_WIDTH = 128
 OLED_HEIGHT = 64
-
 
 
 doClimate=True
@@ -52,13 +51,13 @@ ledFlash()
 userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 
 # Create I2c interface objects
-# Circuit python lib https://github.com/robert-hh/INA219
-i2c = machine.I2C(0, scl=machine.Pin(13), sda=machine.Pin(12), freq=50000)
+i2c = I2C(0, scl=Pin(13), sda=Pin(12))
 for device in i2c.scan():
     not quiet and print("I2C hexadecimal address: ", hex(device))
 
 # Check if DS3231, INA219 and BME688 are present
 #  on the i2c bus
+
 print(i2c.scan())
 if i2c.scan().count(0x68):
     ds = DS3231(i2c)
@@ -73,7 +72,7 @@ if i2c.scan().count(0x40):
     ina.configure()
 else:
     doVehicle=False
-if i2c.scan().count(0x20) and i2c.scan().count(0x3C) :
+if i2c.scan().count(0x20) and i2c.scan().count(0x3c)  :
     # Set up ssd1306 (oled) and pcf8575 (IO Expander) objects
     oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c, addr=0x3c)
     pcf = pcf8575.PCF8575(i2c, 0x20)
@@ -358,13 +357,16 @@ def doWifi():
     else:
         return False
     
-def oledCenter(fontWidth,text):
+def oledCenter(fontWidth,text): 
     charactersPerLine = OLED_WIDTH // fontWidth
     textCharacters = len(text)
     if textCharacters>=charactersPerLine:
-        return 0
+        not quiet and print("oledCenter (16):",fontWidth,text,charactersPerLine,textCharacters,1)
+        return 1
     else:
-        return ((charactersPerLine //2) - (textCharacters // 2)) * fontWidth
+        col=int((charactersPerLine - textCharacters) * fontWidth//2) + 1
+        not quiet and print("oledCenter:",fontWidth,text,charactersPerLine,textCharacters,col)
+        return col
     
 def oledDisplayValue(name,value):
     not quiet and print("oledDisplayValue:",name,value)
@@ -375,31 +377,51 @@ def oledDisplayValue(name,value):
     # Use writer to write using the larger font
     wri = Writer(oled, freesansnum35, verbose=False)
     # Will base the centering on being able to fit 5 large characters on the line
-    Writer.set_textpos(oled, oledCenter(25,str(value)), 0)
+    wri = Writer(oled, freesansnum35, verbose=False)
+    Writer.set_textpos(oled, 25, oledCenter(15,str(value)))
     wri.printstring(str(value))
     oled.show()
-    time.sleep(3)
+    time.sleep(5)
     oled.fill(0)
     oled.show()
     
 def showOLEDPower():
     not quiet and print("showOLEDPower")
     # get the current amps,and voltage and show on the oled
-    if statAmps.samples >0:
-        if statAmps.lastValue<1:
-            oledDisplayValue("Amps",round(statAmps.lastValue,2))
+    if doVehicle:
+        if statAmps.sampleCount >0:
+            amps = round(statAmps.lastValue / 1000,3)
+            if amps >0:
+                if amps<1:
+                    oledDisplayValue("Amps",round(amps,2))
+                else:
+                    oledDisplayValue("Amps",round(amps,1))
         else:
-            oledDisplayValue("Amps",round(statAmps.lastValue,1))
-    if statVolts.samples >0:
-        oledDisplayValue("Volts",round(statVolts.lastValue,2))
+            oledDisplayValue("No Amp Samples",0)
+        if statVolts.sampleCount >0:
+            oledDisplayValue("Volts",round(statVolts.lastValue,2))
+        else:
+            oledDisplayValue("No Volt Samples",0)
+        if statVolts.sampleCount >0 and statAmps.sampleCount >0:
+            watts = (statAmps.lastValue / 1000) * statVolts.lastValue
+            oledDisplayValue("Watts",round(watts ,1))
+    else:
+        oledDisplayValue("No Power Data",0)
 
 def showOLEDClimate():
     not quiet and print("showOLEDClimate")
     # get the current amps,and voltage and show on the oled
-    if statCelsius.samples >0:
-        oledDisplayValue("Fahrenheit",round((statCelsius.lastValue() * 1.8) + 32,1))
-    if statHumidity.samples >0:
-        oledDisplayValue("Humidity",round(statHumidity.lastValue(),0))
+    if doClimate:
+        if statCelsius.sampleCount >0:
+            oledDisplayValue("Fahrenheit",round((statCelsius.lastValue() * 1.8) + 32,1))
+        else:
+            oledDisplayValue("No Temp. Samples",0)
+        if statHumidity.sampleCount >0:
+            oledDisplayValue("Humidity",round(statHumidity.lastValue(),0))
+        else:
+            oledDisplayValue("No Humidity Samples",0)
+    else:
+        oledDisplayValue("No Climate Data",0)
 
 
 
@@ -410,10 +432,9 @@ if doDSRTC:
     getVehicle()
     storeVehicle()
 getVehicle()
-sys.exit(0)
 for x in range(2):
     ledFlash()
-doLTE(doGPS=True)
+doLTE(doGPS=False)
 # Always go through a wifi cycle on startup
 # even if it fails it will shutdown the wifi components
 # at the end and save power
@@ -432,16 +453,19 @@ while True:
     # If the led display module is attached then check if one
     # of the 2 status buttons has been pressed and display the 
     # battery or climate data
-    if hasOLED:
-        # Set the 2 i/o pins to check for button pushes to be high
-        pcf.pin(0,1)
-        pcf.pin(1,1)
-        if pcf.pin(0) == 0:
-            # Show the current power usage on the display
-            showOLEDPower()
-        if pcf.pin(1) == 0:
-            # show the current climate on the display
-            showOLEDClimate()
+    try:
+        if hasOLED:
+            # Set the 2 i/o pins to check for button pushes to be high
+            pcf.pin(0,1)
+            if pcf.pin(0) == 0:
+                # Show the current power usage on the display
+                showOLEDPower()
+            pcf.pin(1,1)
+            if pcf.pin(1) == 0:
+                # show the current climate on the display
+                showOLEDClimate()
+    except Exception as e:
+        print("Exception in oled code:",e)
    
 
     # Is it sample time
@@ -467,4 +491,4 @@ while True:
             doWifi()
 
 
-    time.sleep(0.5)
+    time.sleep(1)
