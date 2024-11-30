@@ -412,12 +412,13 @@ def showOLEDClimate():
     not quiet and print("showOLEDClimate")
     # get the current amps,and voltage and show on the oled
     if doClimate:
-        if statCelsius.sampleCount >0:
-            oledDisplayValue("Fahrenheit",round((statCelsius.lastValue() * 1.8) + 32,1))
+        if statCelsius.sampleCount > 0:
+            fahrenheit= round((statCelsius.lastValue * 1.8) + 32,1)
+            oledDisplayValue("Fahrenheit",fahrenheit)
         else:
             oledDisplayValue("No Temp. Samples",0)
         if statHumidity.sampleCount >0:
-            oledDisplayValue("Humidity",round(statHumidity.lastValue(),0))
+            oledDisplayValue("Humidity",round(statHumidity.lastValue,0))
         else:
             oledDisplayValue("No Humidity Samples",0)
     else:
@@ -453,8 +454,8 @@ while True:
     # If the led display module is attached then check if one
     # of the 2 status buttons has been pressed and display the 
     # battery or climate data
-    try:
-        if hasOLED:
+    if hasOLED:
+        try:
             # Set the 2 i/o pins to check for button pushes to be high
             pcf.pin(0,1)
             if pcf.pin(0) == 0:
@@ -464,10 +465,13 @@ while True:
             if pcf.pin(1) == 0:
                 # show the current climate on the display
                 showOLEDClimate()
-    except Exception as e:
-        print("Exception in oled code:",e)
-   
-
+        except Exception as e:
+                f=open('pcfexception.txt', 'w')  
+                f.write(str(time.localtime()) + "\n")
+                sys.print_exception(e,f)
+                f.close()
+                # Reload pcf device
+                pcf = pcf8575.PCF8575(i2c, 0x20)
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
@@ -491,4 +495,4 @@ while True:
             doWifi()
 
 
-    time.sleep(1)
+    time.sleep(0.5)

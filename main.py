@@ -10,6 +10,7 @@ import time
 # to exit the main loop and get access to REPL
 
 led = machine.Pin("LED", machine.Pin.OUT)
+userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 def ledFlash():
     led.on()
     time.sleep(0.2)
@@ -22,9 +23,14 @@ for n in range(10):
 
 try:
     if True:
+        if userButton.value() == 0:
+            print("Exit mainLoop - user button pressed")
+            for x in range(4):
+                ledFlash()
+            sys.exit(0)
         import mainloop
 except Exception as e:
-    f=open('exception.txt', 'w')  
+    f=open('exception.txt', 'a')  
     f.write(str(time.localtime()) + "\n")
     sys.print_exception(e,f)
     f.close()

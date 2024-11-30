@@ -10,6 +10,7 @@
     "LOGGERPORT",
     "mday",
     "mpremote",
+    "pcfexception",
     "pico",
     "rssi",
     "xmit",
