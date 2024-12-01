@@ -17,17 +17,23 @@ def ledFlash():
     led.off()
     time.sleep(0.1)
 
-for n in range(10):
-    ledFlash()
-
+print("Main Start")
+led.on()
+time.sleep(2)
+led.off()
+time.sleep(2)
 
 try:
-    if True:
-        if userButton.value() == 0:
-            print("Exit mainLoop - user button pressed")
-            for x in range(4):
-                ledFlash()
-            sys.exit(0)
+    print("Main check for user button")
+    if userButton.value() == 0:
+        print("Exit main - user button pressed")
+        led.on()
+        time.sleep(1)
+        led.off()
+    else:
+        # 4 flashes indicate mainloop is starting
+        for x in range(4):
+            ledFlash()
         import mainloop
 except Exception as e:
     f=open('exception.txt', 'a')  

@@ -79,7 +79,9 @@ if i2c.scan().count(0x20) and i2c.scan().count(0x3c)  :
 else:
     hasOLED = False
 
-not quiet and print("I2C flags - DS3231  RTC:",doDSRTC," Climate:",doClimate," Vehicle:",doVehicle," hasOLED:",hasOLED)
+
+not quiet and print("\nI2C flags - DS3231  RTC:",doDSRTC," Climate:",doClimate," Vehicle:",doVehicle," hasOLED:",hasOLED,"\n\n")
+
 
 # print("Voltage, current : ",ina.voltage(),ina.current())
 # sys.exit(0)
@@ -125,12 +127,21 @@ def getClimate():
     if doClimate:
         global bme688
         global statHumidity,statVOC,statCelsius,statHPa
-        # Get the climate data from the BME688 sensor and add to the accumulators
-        statCelsius.addSample(bme688.temperature)
-        statHumidity.addSample(bme688.humidity)
-        statHPa.addSample(bme688.pressure)
-        time.sleep(0.1)
-        statVOC.addSample(bme688.gas)
+        try:
+            # Get the climate data from the BME688 sensor and add to the accumulators
+            statCelsius.addSample(bme688.temperature)
+            statHumidity.addSample(bme688.humidity)
+            statHPa.addSample(bme688.pressure)
+            time.sleep(0.1)
+            statVOC.addSample(bme688.gas)
+        except Exception as e:
+            print("\nbmeException")
+            f=open('bmeexception.txt', 'w')  
+            f.write(str(time.localtime()) + "\n")
+            sys.print_exception(e,f)
+            f.close()
+            # Reload bme device
+            bme688 = BME680_I2C(i2c,address=0x76)
 
 def getVehicle():
     if doVehicle:
@@ -466,6 +477,7 @@ while True:
                 # show the current climate on the display
                 showOLEDClimate()
         except Exception as e:
+                print("\npcfException")
                 f=open('pcfexception.txt', 'w')  
                 f.write(str(time.localtime()) + "\n")
                 sys.print_exception(e,f)
