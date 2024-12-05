@@ -51,7 +51,7 @@ ledFlash()
 userButton = machine.Pin(21, machine.Pin.IN, machine.Pin.PULL_DOWN)
 
 # Create I2c interface objects
-i2c = I2C(0, scl=Pin(13), sda=Pin(12))
+i2c = I2C(0, scl=Pin(13), sda=Pin(12),freq=200000)
 for device in i2c.scan():
     not quiet and print("I2C hexadecimal address: ", hex(device))
 
@@ -446,7 +446,7 @@ if doDSRTC:
 getVehicle()
 for x in range(2):
     ledFlash()
-doLTE(doGPS=False)
+doLTE(doGPS=True)
 # Always go through a wifi cycle on startup
 # even if it fails it will shutdown the wifi components
 # at the end and save power
