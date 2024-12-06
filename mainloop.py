@@ -20,7 +20,7 @@ import pcf8575
 
 #  Testing flags
 quiet=False
-skipLTE = True
+skipLTE = False
 skipWiFi = False
 
 settings = Settings()
