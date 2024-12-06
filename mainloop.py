@@ -9,7 +9,7 @@ import freesansnum35
 from settings import Settings
 from ds3231 import DS3231
 from statistic import Statistic
-from bme688 import BME680_I2C
+import bme280_float as bme280
 from bg95m3 import Bg95m3
 from ina219 import INA219
 from logging import DEBUG
@@ -20,7 +20,7 @@ import pcf8575
 
 #  Testing flags
 quiet=False
-skipLTE = False
+skipLTE = True
 skipWiFi = False
 
 settings = Settings()
@@ -64,7 +64,7 @@ if i2c.scan().count(0x68):
 else:
     doDSRTC=False
 if i2c.scan().count(0x76):
-    bme688 = BME680_I2C(i2c,address=0x76)
+    bme = bme280.BME280(i2c=i2c)
 else:
     doClimate=False
 if i2c.scan().count(0x40):
@@ -125,23 +125,15 @@ def getUniqueMs():
 
 def getClimate():
     if doClimate:
-        global bme688
-        global statHumidity,statVOC,statCelsius,statHPa
-        try:
-            # Get the climate data from the BME688 sensor and add to the accumulators
-            statCelsius.addSample(bme688.temperature)
-            statHumidity.addSample(bme688.humidity)
-            statHPa.addSample(bme688.pressure)
-            time.sleep(0.1)
-            statVOC.addSample(bme688.gas)
-        except Exception as e:
-            print("\nbmeException")
-            f=open('bmeexception.txt', 'w')  
-            f.write(str(time.localtime()) + "\n")
-            sys.print_exception(e,f)
-            f.close()
-            # Reload bme device
-            bme688 = BME680_I2C(i2c,address=0x76)
+        global bme
+        global statHumidity,statCelsius,statHPa
+
+        # Get the climate data from the BME280 sensor and add to the accumulators
+        t, p, h = bme.read_compensated_data()
+        print("bmevalues:",t,p,h)
+        statCelsius.addSample(t)
+        statHumidity.addSample(h)
+        statHPa.addSample(p/100)
 
 def getVehicle():
     if doVehicle:
@@ -157,15 +149,11 @@ def storeClimate():
     # store them in a date stamped json file 
     # for sending to the IOT server 
     if doClimate:
-        global statHumidity,statVOC,statCelsius,statHPa
+        global statHumidity,statCelsius,statHPa
         iotData = {}
         iotData["celsius"] = round(statCelsius.average,2)
         iotData["hPa"] = round(statHPa.average,1)
         iotData["humidity"] = round(statHumidity.average,0)
-        if time.time() - upTimeStart > 10800:
-            # Only start recording VOC info after the probe has been running for 3 hours
-            # this helps reduce the impact of the BMR688 warm up time
-            iotData["voc"] = round(statVOC.average,0)
         iotData["sensorTimestamp"] = time.time()
         iotData["appID"] = CLIMATE_ID
         file = "data/" + str(time.time()) + getUniqueMs() + ".json"
