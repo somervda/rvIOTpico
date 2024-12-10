@@ -148,7 +148,8 @@ def storeClimate():
     # Get averages for any climate statistics
     # store them in a date stamped json file 
     # for sending to the IOT server 
-    if doClimate:
+    if doClimate and time.time() > 1704067201:
+        # Only store data if we have a valid time set (> 2024)
         global statHumidity,statCelsius,statHPa
         iotData = {}
         iotData["celsius"] = round(statCelsius.average,2)
@@ -169,7 +170,8 @@ def storeVehicle():
     # Get averages for any vehicle statistics
     # store them in a date stamped json file 
     # for sending to the IOT server 
-    if doVehicle:
+    if doVehicle and time.time() > 1704067201:
+        # Only store data if we have a valid time set (> 2024)
         global statVolts,statAmps
         iotData = {}
         iotData["houseVolts"] = round(statVolts.average,2)
@@ -184,35 +186,46 @@ def storeVehicle():
         statAmps.reset()
 
 def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=-1):
-    iotData = {}
-    iotData["appID"] = IOT_ID
-    iotData["sensorTimestamp"] = time.time()
-    if rssi:
-        iotData["RSSI"] = rssi 
-    if gpsSeconds:
-        iotData["gpsSeconds"] = gpsSeconds
-    iotData["sendSeconds"] = sendSeconds
-    iotData["uptimeSeconds"] = time.time() - upTimeStart
-    if filesSent:
-        iotData["filesSent"] = filesSent
-    if wifiFilesSent:
-        iotData["wififilesSent"] = wifiFilesSent
-    iotData["ssid"] = ssidIndex
-    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print("Saving... ",file,iotData)
-    with open(file, "w") as sensor_data_file:
-            sensor_data_file.write(json.dumps(iotData))
+    if time.time() > 1704067201:
+        # Only store data if we have a valid time set (> 2024)
+        # get freespace
+        stat = os.statvfs("/")
+        size = stat[1] * stat[2]
+        free = stat[0] * stat[3]
+        used = size - free
+        iotData = {}
+        iotData["appID"] = IOT_ID
+        iotData["sensorTimestamp"] = time.time()
+        iotData["freeKB"] = free/1024 
+        iotData["usedKB"] = used/1024 
+        if rssi:
+            iotData["RSSI"] = rssi 
+        if gpsSeconds:
+            iotData["gpsSeconds"] = gpsSeconds
+        iotData["sendSeconds"] = sendSeconds
+        iotData["uptimeSeconds"] = time.time() - upTimeStart
+        if filesSent:
+            iotData["filesSent"] = filesSent
+        if wifiFilesSent:
+            iotData["wififilesSent"] = wifiFilesSent
+        iotData["ssid"] = ssidIndex
+        file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+        not quiet and print("Saving... ",file,iotData)
+        with open(file, "w") as sensor_data_file:
+                sensor_data_file.write(json.dumps(iotData))
 
 def storeGPS(gpsData):
-    iotData = {}
-    iotData["appID"] = LOCATION_ID
-    iotData["sensorTimestamp"] = time.time()
-    iotData["latitude"] = gpsData["latitude"] 
-    iotData["longitude"] = gpsData["longitude"] 
-    file = "data/" + str(time.time()) + getUniqueMs() + ".json"
-    not quiet and print("Saving... ",file,iotData)
-    with open(file, "w") as sensor_data_file:
-            sensor_data_file.write(json.dumps(iotData))
+    if time.time() > 1704067201:
+        # Only store data if we have a valid time set (> 2024)
+        iotData = {}
+        iotData["appID"] = LOCATION_ID
+        iotData["sensorTimestamp"] = time.time()
+        iotData["latitude"] = gpsData["latitude"] 
+        iotData["longitude"] = gpsData["longitude"] 
+        file = "data/" + str(time.time()) + getUniqueMs() + ".json"
+        not quiet and print("Saving... ",file,iotData)
+        with open(file, "w") as sensor_data_file:
+                sensor_data_file.write(json.dumps(iotData))
 
 def checkGPSTime(gpsData):
     global ds,rtc
