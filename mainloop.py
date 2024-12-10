@@ -23,6 +23,9 @@ quiet=False
 skipLTE = False
 skipWiFi = False
 
+# Reboot daily to see if it improves reliability
+doDailyReboot = True
+
 settings = Settings()
 CLIMATE_ID = 1
 VEHICLE_ID = 3
@@ -485,6 +488,13 @@ while True:
                 f.close()
                 # Reload pcf device
                 pcf = pcf8575.PCF8575(i2c, 0x20)
+    # Check it time for daily reboot and time seems to be set
+    if doDailyReboot and time.time() > 1704067201:
+        # Check if it is 6:20AM GMT
+        ltyear,ltmonth,ltmday,lthour,ltminute,ltsecond,ltweekday,ltyearday = time.localtime()
+        if lthour == 6 and ltminute==20:
+            not quiet and print("*** Reboot time",time.localtime())
+            sys.exit(0)
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
         lastSample = time.time() - (time.time() % settings.get('SAMPLE_SECONDS') )
