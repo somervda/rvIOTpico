@@ -490,10 +490,13 @@ while True:
                 pcf = pcf8575.PCF8575(i2c, 0x20)
     # Check it time for daily reboot and time seems to be set
     if doDailyReboot and time.time() > 1704067201:
-        # Check if it is 6:20AM GMT
+        # Check if it is 2:20AM 
         ltyear,ltmonth,ltmday,lthour,ltminute,ltsecond,ltweekday,ltyearday = time.localtime()
-        if lthour == 6 and ltminute==20:
+        if lthour == 2 and ltminute==20:
             not quiet and print("*** Reboot time",time.localtime())
+            f=open('reboot.txt', 'a')  
+            f.write(str(time.localtime()) )
+            f.close()
             sys.exit(0)
     # Is it sample time
     if (time.time() - lastSample >= settings.get('SAMPLE_SECONDS')):
