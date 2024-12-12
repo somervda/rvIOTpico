@@ -27,6 +27,7 @@ skipWiFi = False
 doDailyReboot = True
 # Will stay in an LTE registration loop until it connects
 waitForLTE = True
+lteConnectCount=0
 
 settings = Settings()
 CLIMATE_ID = 1
@@ -191,6 +192,7 @@ def storeVehicle():
         statAmps.reset()
 
 def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=-1):
+    global lteConnectCount,freeKB,usedKB
     if time.time() > 1704067201:
         # Only store data if we have a valid time set (> 2024)
         # get freespace
@@ -203,6 +205,8 @@ def storeIOT(gpsSeconds,sendSeconds,filesSent,rssi,wifiFilesSent,ssidIndex=-1):
         iotData["sensorTimestamp"] = time.time()
         iotData["freeKB"] = free/1024 
         iotData["usedKB"] = used/1024 
+        iotData["lteConnectCount"] = lteConnectCount
+        lteConnectCount = 0
         if rssi:
             iotData["RSSI"] = rssi 
         if gpsSeconds:
@@ -250,8 +254,24 @@ def checkGPSTime(gpsData):
         rtc.datetime(gmtPico)
         not quiet and print("RTCs updated")
 
-
-
+def tryForLTE():
+    global lteConnectCount
+    not quiet and print(" Doing initial LTE registration as part of waitForLTE option")
+    bg95m3 = Bg95m3(quiet)
+    if not bg95m3.powerOn():
+        bg95m3.powerOff()
+        return False
+    for connectCount in range(50):
+        not quiet and print(" LTE Connect:",connectCount)
+        lteConnectCount = connectCount
+        if bg95m3.lteConnect():
+            not quiet and print(" LTE Connect Successful")
+            bg95m3.powerOff()
+            time.sleep(1)
+            return True
+        time.sleep(1)
+    bg95m3.powerOff()
+    return False  
 
 def doLTE(doGPS=True):
     if skipLTE:
@@ -453,22 +473,7 @@ getVehicle()
 for x in range(2):
     ledFlash()
 if waitForLTE:
-    not quiet and print(" Doing initial LTE registration as part of waitForLTE option")
-    for connectCount in range(50):
-        not quiet and print(" LTE Connect:",connectCount)
-        bg95m3 = Bg95m3(quiet)
-        if not bg95m3.powerOn():
-            bg95m3.powerOff()
-        else:
-            if bg95m3.lteConnect():
-                not quiet and print(" LTE Connect Successful")
-                bg95m3.powerOff()
-                del bg95m3
-                # Success - exit
-                break
-            bg95m3.powerOff()
-            del bg95m3
-            # Try again
+    tryForLTE()
 
 # Connecting to LTE but and get GPS and clock update
 doLTE(doGPS=True)
