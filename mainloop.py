@@ -309,7 +309,10 @@ def doLTE(doGPS=True):
         # Send any available iotData files
         if bg95m3.lteConnect():
             # Successful connect so remove the doLTEConnect file
-            os.remove(DOLTE_FILE_NAME)
+            try:
+                os.remove(DOLTE_FILE_NAME)
+            except:
+                pass
             fullSendSuccess=False
             for fileName in os.listdir("data"):
                 with open("data/" + fileName, "r") as iotDataFile:
