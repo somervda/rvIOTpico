@@ -25,9 +25,18 @@ skipWiFi = False
 
 # Reboot daily to see if it improves reliability
 doDailyReboot = True
-# Will stay in an LTE registration loop until it connects
-waitForLTE = True
+# The waitForLTE flag is only set if an LTE connection fails
+# and only applied after a reboot. This will 
+# an attempt to do an LTE registration loop until it connects (for about 4 hours)
+DOLTE_FILE_NAME="doLTEConnect.txt"
+waitForLTE = False
 lteConnectCount=0
+
+try:
+    os.stat(DOLTE_FILE_NAME)
+    waitForLTE = True
+except OSError:
+    waitForLTE = False
 
 settings = Settings()
 CLIMATE_ID = 1
@@ -299,6 +308,8 @@ def doLTE(doGPS=True):
 
         # Send any available iotData files
         if bg95m3.lteConnect():
+            # Successful connect so remove the doLTEConnect file
+            os.remove(DOLTE_FILE_NAME)
             fullSendSuccess=False
             for fileName in os.listdir("data"):
                 with open("data/" + fileName, "r") as iotDataFile:
@@ -354,6 +365,8 @@ def doLTE(doGPS=True):
         else:
             # lteConnect failed
             bg95m3.powerOff()
+            with open(DOLTE_FILE_NAME, "w") as doLTE_file:
+                doLTE_file.write("Yes")
             return False           
 
 def doWifi():
